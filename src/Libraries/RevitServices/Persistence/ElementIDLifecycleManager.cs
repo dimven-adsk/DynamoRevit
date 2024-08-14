@@ -65,20 +65,21 @@ namespace RevitServices.Persistence
         {
 
             List<Object> existingWrappers;
-            if (wrappers.TryGetValue(elementID, out existingWrappers))
-            {
-                //ID already existed, check we're not over adding
-                Validity.Assert(!existingWrappers.Contains(wrapper), 
-                    "Lifecycle manager alert: registering the same Revit Element Wrapper twice"
-                    + " {6528305F}");
-                //return;
-            }
-            else
+            if (!wrappers.TryGetValue(elementID, out existingWrappers))
             {
                 existingWrappers = new List<object>();
                 wrappers.Add(elementID, existingWrappers);
             }
-
+#if DEBUG
+            else
+            {
+                //ID already existed, check we're not over adding
+                Validity.Assert(!existingWrappers.Contains(wrapper),
+                    "Lifecycle manager alert: registering the same Revit Element Wrapper twice"
+                    + " {6528305F}");
+                //return;
+            }
+#endif
             existingWrappers.Add(wrapper);
             if (!revitDeleted.ContainsKey(elementID))
             {
