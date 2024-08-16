@@ -30,9 +30,9 @@ namespace Revit.GeometryReferences
             return new ElementFaceReference(arg);
         }
 
-        internal static Autodesk.DesignScript.Geometry.Surface AddTag( Autodesk.DesignScript.Geometry.Surface surface, Autodesk.Revit.DB.Reference reference )
+        internal static Autodesk.DesignScript.Geometry.Surface AddTag(Autodesk.DesignScript.Geometry.Surface surface, Autodesk.Revit.DB.Reference reference)
         {
-            surface.Tags.AddTag( DefaultTag, reference );
+            surface.Tags.AddTag(DefaultTag, reference);
             return surface;
         }
 
@@ -40,7 +40,7 @@ namespace Revit.GeometryReferences
 
         internal static ElementFaceReference TryGetFaceReference(object geometryObject, string nodeTypeString = "This node")
         {
-            var geometry = (dynamic) geometryObject;
+            var geometry = (dynamic)geometryObject;
 
             try
             {
@@ -96,6 +96,23 @@ namespace Revit.GeometryReferences
         public static ElementFaceReference BySurface(Autodesk.DesignScript.Geometry.Surface surface)
         {
             return TryGetFaceReference(surface);
+        }
+
+        public static Face TryGetFaceFromReference(Document doc, Reference reference)
+        {
+            if (reference.ElementReferenceType != ElementReferenceType.REFERENCE_TYPE_SURFACE)
+            {
+                return null;
+            }
+
+            Element e = null;
+            try
+            {
+                e = doc.GetElement(reference.ElementId);
+            }
+            catch { }
+
+            return e?.GetGeometryObjectFromReference(reference) as Face;
         }
     }
 

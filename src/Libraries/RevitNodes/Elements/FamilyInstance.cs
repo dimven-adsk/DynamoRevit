@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Autodesk.DesignScript.Geometry;
+using Autodesk.Revit.Creation;
 using DynamoServices;
 using DynamoUnits;
 using Revit.Elements.InternalUtilities;
@@ -8,6 +9,7 @@ using Revit.GeometryConversion;
 using Revit.GeometryReferences;
 using RevitServices.Persistence;
 using RevitServices.Transactions;
+using DB = Autodesk.Revit.DB;
 using Point = Autodesk.DesignScript.Geometry.Point;
 using Surface = Autodesk.DesignScript.Geometry.Surface;
 using Vector = Autodesk.DesignScript.Geometry.Vector;
@@ -20,14 +22,13 @@ namespace Revit.Elements
     [RegisterForTrace]
     public class FamilyInstance : AbstractFamilyInstance
     {
-
         #region Private constructors
 
         /// <summary>
         /// Wrap an existing FamilyInstance.
         /// </summary>
         /// <param name="instance"></param>
-        protected FamilyInstance(Autodesk.Revit.DB.FamilyInstance instance)
+        protected FamilyInstance(DB.FamilyInstance instance)
         {
             SafeInit(() => InitFamilyInstance(instance), true);
         }
@@ -35,8 +36,8 @@ namespace Revit.Elements
         /// <summary>
         /// Internal constructor for a FamilyInstance
         /// </summary>
-        internal FamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.XYZ pos,
-            Autodesk.Revit.DB.Level level)
+        internal FamilyInstance(DB.FamilySymbol fs, DB.XYZ pos,
+            DB.Level level)
         {
             SafeInit(() => InitFamilyInstance(fs, pos, level));
         }
@@ -44,22 +45,22 @@ namespace Revit.Elements
         /// <summary>
         /// Internal constructor for a FamilyInstance
         /// </summary>
-        internal FamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.XYZ pos)
+        internal FamilyInstance(DB.FamilySymbol fs, DB.XYZ pos)
         {
             SafeInit(() => InitFamilyInstance(fs, pos));
         }
 
-        internal FamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.Reference reference, Autodesk.Revit.DB.Line pos)
+        internal FamilyInstance(DB.FamilySymbol fs, DB.Reference reference, DB.Line pos)
         {
             SafeInit(() => InitFamilyInstance(fs, reference, pos));
         }
 
-        internal FamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.Reference reference, Autodesk.Revit.DB.XYZ location, Autodesk.Revit.DB.XYZ referenceDirection)
+        internal FamilyInstance(DB.FamilySymbol fs, DB.Reference reference, DB.XYZ location, DB.XYZ referenceDirection)
         {
             SafeInit(() => InitFamilyInstance(fs, reference, location, referenceDirection));
         }
 
-        internal FamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.Element host, Autodesk.Revit.DB.XYZ location)
+        internal FamilyInstance(DB.FamilySymbol fs, DB.Element host, DB.XYZ location)
         {
             SafeInit(() => InitFamilyInstance(fs, host, location));
         }
@@ -71,7 +72,7 @@ namespace Revit.Elements
         /// Initialize a FamilyInstance element
         /// </summary>
         /// <param name="instance"></param>
-        private void InitFamilyInstance(Autodesk.Revit.DB.FamilyInstance instance)
+        private void InitFamilyInstance(DB.FamilyInstance instance)
         {
             InternalSetFamilyInstance(instance);
         }
@@ -79,12 +80,12 @@ namespace Revit.Elements
         /// <summary>
         /// Initialize a FamilyInstance element
         /// </summary>
-        private void InitFamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.XYZ pos,
-            Autodesk.Revit.DB.Level level)
+        private void InitFamilyInstance(DB.FamilySymbol fs, DB.XYZ pos,
+            DB.Level level)
         {
             //Phase 1 - Check to see if the object exists and should be rebound
             var oldFam =
-                ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.FamilyInstance>(Document);
+                ElementBinder.GetElementFromTrace<DB.FamilyInstance>(Document);
 
             //There was a point, rebind to that, and adjust its position
             if (oldFam != null)
@@ -103,34 +104,64 @@ namespace Revit.Elements
             if (!fs.IsActive)
                 fs.Activate();
 
-            Autodesk.Revit.DB.FamilyInstance fi;
-
-            if (Document.IsFamilyDocument)
+            if (EnableBatchProcessing)
             {
-                fi = Document.FamilyCreate.NewFamilyInstance(pos, fs, level,
-                    Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                BatchProcessingId = Guid.NewGuid().ToString();
+                var cd = new FamilyInstanceCreationData(pos, fs, level, NonStructural);
+                TransactionManager.Instance.AddCreationData(BatchProcessingId, cd);
+                TransactionManager.Instance.TransactionWrapper.TransactionCommitted += ResolveInternalElement;
             }
             else
             {
-                fi = Document.Create.NewFamilyInstance(
-                    pos, fs, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
-            }
+                var fi = Document.IsFamilyDocument
+                    ? Document.FamilyCreate.NewFamilyInstance(pos, fs, level, NonStructural)
+                    : Document.Create.NewFamilyInstance(pos, fs, level, NonStructural);
 
-            InternalSetFamilyInstance(fi);
+                InternalSetFamilyInstance(fi);
+
+                ElementBinder.SetElementForTrace(InternalElement);
+            }
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalElement);
         }
+
+        private void ResolveInternalElement()
+        {
+            TransactionManager.Instance.TransactionWrapper.TransactionCommitted -= ResolveInternalElement;
+
+            var fi = TransactionManager.Instance.GetInstanceFromCreationData(BatchProcessingId);
+            if (fi != null)
+            {
+                InternalSetFamilyInstance(fi);
+
+                ElementBinder.SetElementForTrace(InternalElement);
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            var id = BatchProcessingId ?? InternalUniqueId;
+            return id.GetHashCode();
+        }
+
+        public override void Dispose()
+        {
+            base.Dispose();
+
+            TransactionManager.Instance.TransactionWrapper.TransactionCommitted -= ResolveInternalElement;
+        }
+
+        const DB.Structure.StructuralType NonStructural = DB.Structure.StructuralType.NonStructural;
 
         /// <summary>
         /// Initialize a FamilyInstance element
         /// </summary>
-        private void InitFamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.XYZ pos)
+        private void InitFamilyInstance(DB.FamilySymbol fs, DB.XYZ pos)
         {
             //Phase 1 - Check to see if the object exists and should be rebound
             var oldFam =
-                ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.FamilyInstance>(Document);
+                ElementBinder.GetElementFromTrace<DB.FamilyInstance>(Document);
 
             //There was a point, rebind to that, and adjust its position
             if (oldFam != null)
@@ -148,22 +179,32 @@ namespace Revit.Elements
             if (!fs.IsActive)
                 fs.Activate();
 
-            var fi = Document.IsFamilyDocument
-                ? Document.FamilyCreate.NewFamilyInstance(pos, fs, Autodesk.Revit.DB.Structure.StructuralType.NonStructural)
-                : Document.Create.NewFamilyInstance(pos, fs, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+            if (EnableBatchProcessing)
+            {
+                BatchProcessingId = Guid.NewGuid().ToString();
+                var cd = new FamilyInstanceCreationData(pos, fs, NonStructural);
+                TransactionManager.Instance.AddCreationData(BatchProcessingId, cd);
+                TransactionManager.Instance.TransactionWrapper.TransactionCommitted += ResolveInternalElement;
+            }
+            else
+            {
+                var fi = Document.IsFamilyDocument
+                    ? Document.FamilyCreate.NewFamilyInstance(pos, fs, NonStructural)
+                    : Document.Create.NewFamilyInstance(pos, fs, NonStructural);
 
-            InternalSetFamilyInstance(fi);
+                InternalSetFamilyInstance(fi);
+
+                ElementBinder.SetElementForTrace(InternalElement);
+            }
 
             TransactionManager.Instance.TransactionTaskDone();
-
-            ElementBinder.SetElementForTrace(InternalElement);
         }
 
-        private void InitFamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.Reference reference, Autodesk.Revit.DB.Line pos)
+        private void InitFamilyInstance(DB.FamilySymbol fs, DB.Reference reference, DB.Line pos)
         {
             //Phase 1 - Check to see if the object exists and should be rebound
             var oldFam =
-                ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.FamilyInstance>(Document);
+                ElementBinder.GetElementFromTrace<DB.FamilyInstance>(Document);
 
             //There was an existing family instance, rebind to that, and adjust its position
             if (oldFam != null && oldFam.HostFace.ElementId == reference.ElementId)
@@ -181,23 +222,34 @@ namespace Revit.Elements
             if (!fs.IsActive)
                 fs.Activate();
 
-            var fi = Document.IsFamilyDocument 
-                ? Document.FamilyCreate.NewFamilyInstance(reference, pos, fs) 
-                : Document.Create.NewFamilyInstance(reference, pos, fs);
+            if (EnableBatchProcessing)
+            {
+                BatchProcessingId = Guid.NewGuid().ToString();
+                var face = ElementFaceReference.TryGetFaceFromReference(Document, reference);
+                var cd = new FamilyInstanceCreationData(face, pos, fs);
+                TransactionManager.Instance.AddCreationData(BatchProcessingId, cd);
+                TransactionManager.Instance.TransactionWrapper.TransactionCommitted += ResolveInternalElement;
+            }
+            else
+            {
+                var fi = Document.IsFamilyDocument
+                    ? Document.FamilyCreate.NewFamilyInstance(reference, pos, fs)
+                    : Document.Create.NewFamilyInstance(reference, pos, fs);
 
-            InternalSetFamilyInstance(fi);
+                InternalSetFamilyInstance(fi);
+
+                ElementBinder.SetElementForTrace(InternalElement);
+            }
 
             TransactionManager.Instance.TransactionTaskDone();
-
-            ElementBinder.SetElementForTrace(InternalElement);
         }
 
-        private void InitFamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.Reference reference, Autodesk.Revit.DB.XYZ location,
-            Autodesk.Revit.DB.XYZ referenceDirection)
+        private void InitFamilyInstance(DB.FamilySymbol fs, DB.Reference reference, DB.XYZ location,
+            DB.XYZ referenceDirection)
         {
             //Phase 1 - Check to see if the object exists and should be rebound
             var oldFam =
-                ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.FamilyInstance>(Document);
+                ElementBinder.GetElementFromTrace<DB.FamilyInstance>(Document);
 
             //There was an existing family instance, rebind to that, and adjust its position
             if (oldFam != null && oldFam.HostFace.ElementId == reference.ElementId)
@@ -214,23 +266,33 @@ namespace Revit.Elements
             //If the symbol is not active, then activate it
             if (!fs.IsActive)
                 fs.Activate();
+            if (EnableBatchProcessing)
+            {
+                BatchProcessingId = Guid.NewGuid().ToString();
+                var face = ElementFaceReference.TryGetFaceFromReference(Document, reference);
+                var cd = new FamilyInstanceCreationData(face, location, referenceDirection, fs);
+                TransactionManager.Instance.AddCreationData(BatchProcessingId, cd);
+                TransactionManager.Instance.TransactionWrapper.TransactionCommitted += ResolveInternalElement;
+            }
+            else
+            {
+                var fi = Document.IsFamilyDocument
+                    ? Document.FamilyCreate.NewFamilyInstance(reference, location, referenceDirection, fs)
+                    : Document.Create.NewFamilyInstance(reference, location, referenceDirection, fs);
 
-            var fi = Document.IsFamilyDocument 
-                ? Document.FamilyCreate.NewFamilyInstance(reference,  location, referenceDirection, fs) 
-                : Document.Create.NewFamilyInstance(reference, location, referenceDirection, fs);
+                InternalSetFamilyInstance(fi);
 
-            InternalSetFamilyInstance(fi);
+                ElementBinder.SetElementForTrace(InternalElement);
+            }
 
             TransactionManager.Instance.TransactionTaskDone();
-
-            ElementBinder.SetElementForTrace(InternalElement);
         }
 
-        private void InitFamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.Element host, Autodesk.Revit.DB.XYZ location)
+        private void InitFamilyInstance(DB.FamilySymbol fs, DB.Element host, DB.XYZ location)
         {
             //Phase 1 - Check to see if the object exists and should be rebound
             var oldFam =
-                ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.FamilyInstance>(Document);
+                ElementBinder.GetElementFromTrace<DB.FamilyInstance>(Document);
 
             //There was an existing family instance, rebind to that, and adjust its position
             if (oldFam != null && oldFam.Host.Id == host.Id)
@@ -247,22 +309,33 @@ namespace Revit.Elements
             //If the symbol is not active, then activate it
             if (!fs.IsActive)
                 fs.Activate();
-            var level = Document.GetElement(host.LevelId) as Autodesk.Revit.DB.Level;
-            var fi = Document.IsFamilyDocument
-                ? Document.FamilyCreate.NewFamilyInstance(location, fs, host, Autodesk.Revit.DB.Structure.StructuralType.NonStructural)
-                : Document.Create.NewFamilyInstance(location, fs, host, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
 
-            InternalSetFamilyInstance(fi);
+            var level = Document.GetElement(host.LevelId) as DB.Level;
+            if (EnableBatchProcessing)
+            {
+                BatchProcessingId = Guid.NewGuid().ToString();
+                var cd = new FamilyInstanceCreationData(location, fs, host, level, NonStructural);
+                TransactionManager.Instance.AddCreationData(BatchProcessingId, cd);
+                TransactionManager.Instance.TransactionWrapper.TransactionCommitted += ResolveInternalElement;
+            }
+            else
+            {
+                var fi = Document.IsFamilyDocument
+                    ? Document.FamilyCreate.NewFamilyInstance(location, fs, host, NonStructural)
+                    : Document.Create.NewFamilyInstance(location, fs, host, level, NonStructural);
+
+                InternalSetFamilyInstance(fi);
+
+                ElementBinder.SetElementForTrace(InternalElement);
+            }
 
             TransactionManager.Instance.TransactionTaskDone();
-
-            ElementBinder.SetElementForTrace(InternalElement);
         }
         #endregion
 
         #region Private mutators
 
-        private void InternalSetLevel(Autodesk.Revit.DB.Level level)
+        private void InternalSetLevel(DB.Level level)
         {
             if (InternalFamilyInstance.LevelId.Compare(level.Id) == 0)
                 return;
@@ -270,26 +343,26 @@ namespace Revit.Elements
             TransactionManager.Instance.EnsureInTransaction(Document);
 
             // http://thebuildingcoder.typepad.com/blog/2011/01/family-instance-missing-level-property.html
-            InternalFamilyInstance.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.FAMILY_LEVEL_PARAM).Set(level.Id);
+            InternalFamilyInstance.get_Parameter(DB.BuiltInParameter.FAMILY_LEVEL_PARAM).Set(level.Id);
 
             TransactionManager.Instance.TransactionTaskDone();
         }
 
-        private void InternalSetPosition(Autodesk.Revit.DB.XYZ fi)
+        private void InternalSetPosition(DB.XYZ fi)
         {
             TransactionManager.Instance.EnsureInTransaction(Document);
 
-            var lp = InternalFamilyInstance.Location as Autodesk.Revit.DB.LocationPoint;
+            var lp = InternalFamilyInstance.Location as DB.LocationPoint;
             if (lp != null && !lp.Point.IsAlmostEqualTo(fi)) lp.Point = fi;
 
             TransactionManager.Instance.TransactionTaskDone();
         }
 
-        private void InternalSetPosition(Autodesk.Revit.DB.Curve pos)
+        private void InternalSetPosition(DB.Curve pos)
         {
             TransactionManager.Instance.EnsureInTransaction(Document);
 
-            var lp = InternalFamilyInstance.Location as Autodesk.Revit.DB.LocationCurve;
+            var lp = InternalFamilyInstance.Location as DB.LocationCurve;
 
             if (lp != null && lp.Curve != pos) lp.Curve = pos;
 
@@ -329,7 +402,7 @@ namespace Revit.Elements
         {
             get
             {
-                return InternalFamilyInstance.IsValidObject ? 
+                return InternalFamilyInstance.IsValidObject ?
                     InternalFamilyInstance.FacingOrientation.ToVector() : null;
             }
         }
@@ -362,6 +435,9 @@ namespace Revit.Elements
             }
         }
 
+        public static bool EnableBatchProcessing = true;
+        private string BatchProcessingId;
+
         #endregion
 
         #region Public static constructors
@@ -377,8 +453,8 @@ namespace Revit.Elements
             if (familyType == null)
             {
                 throw new ArgumentNullException("familyType");
-            } 
-            
+            }
+
             if (point == null)
             {
                 throw new ArgumentNullException("point");
@@ -413,7 +489,7 @@ namespace Revit.Elements
             }
             var reference = ElementFaceReference.TryGetFaceReference(face);
 
-            return new FamilyInstance(familyType.InternalFamilySymbol, reference.InternalReference, (Autodesk.Revit.DB.Line) line.ToRevitType());
+            return new FamilyInstance(familyType.InternalFamilySymbol, reference.InternalReference, (DB.Line)line.ToRevitType());
         }
 
         /// <summary>
@@ -427,7 +503,7 @@ namespace Revit.Elements
         /// <param name="location">Point on the face where the instance is to be placed</param>
         /// <param name="referenceDirection">A vector that defines the direction of placement of the family instance</param>
         /// <returns>FamilyInstance</returns>
-        public static FamilyInstance ByFace(FamilyType familyType, Surface face, Point location, 
+        public static FamilyInstance ByFace(FamilyType familyType, Surface face, Point location,
             Vector referenceDirection)
         {
             if (familyType == null)
@@ -448,7 +524,7 @@ namespace Revit.Elements
             }
             var reference = ElementFaceReference.TryGetFaceReference(face);
 
-            return new FamilyInstance(familyType.InternalFamilySymbol, reference.InternalReference, 
+            return new FamilyInstance(familyType.InternalFamilySymbol, reference.InternalReference,
                 location.ToXyz(), referenceDirection.ToXyz());
         }
 
@@ -505,7 +581,7 @@ namespace Revit.Elements
             }
 
             return DocumentManager.Instance
-                .ElementsOfType<Autodesk.Revit.DB.FamilyInstance>()
+                .ElementsOfType<DB.FamilyInstance>()
                 .Where(x => x.Symbol.Id == familyType.InternalFamilySymbol.Id)
                 .Select(x => FromExisting(x, true))
                 .ToArray();
@@ -519,7 +595,7 @@ namespace Revit.Elements
         /// <returns>New family instance.</returns>
         public static FamilyInstance ByCoordinateSystem(FamilyType familyType, CoordinateSystem coordinateSystem)
         {
-            var transform = coordinateSystem.ToTransform() as Autodesk.Revit.DB.Transform;
+            var transform = coordinateSystem.ToTransform() as DB.Transform;
             double[] newRotationAngles;
             TransformUtils.ExtractEularAnglesFromTransform(transform, out newRotationAngles);
             double rotation = ConvertEularToAngleDegrees(newRotationAngles.FirstOrDefault());
@@ -557,7 +633,7 @@ namespace Revit.Elements
         /// <param name="familyInstance"></param>
         /// <param name="isRevitOwned"></param>
         /// <returns></returns>
-        internal static FamilyInstance FromExisting(Autodesk.Revit.DB.FamilyInstance familyInstance, bool isRevitOwned)
+        internal static FamilyInstance FromExisting(DB.FamilyInstance familyInstance, bool isRevitOwned)
         {
             return new FamilyInstance(familyInstance)
             {
@@ -594,10 +670,10 @@ namespace Revit.Elements
         /// <summary>
         /// Gets the family of this family instance
         /// </summary>
-        public Family GetFamily 
-        { 
-            get 
-            { 
+        public Family GetFamily
+        {
+            get
+            {
                 return Family.FromExisting(this.InternalFamilyInstance.Symbol.Family, true);
             }
         }
@@ -613,7 +689,7 @@ namespace Revit.Elements
             get { return base.Type; }
         }
 
-        
+
 
         /// <summary>
         /// Set the Euler angle of the family instance around its local Z-axis.
@@ -635,8 +711,8 @@ namespace Revit.Elements
             if (!oldRotationAngles[0].AlmostEquals(newRotationAngle, 1.0e-6))
             {
                 var rotateAngle = newRotationAngle - oldRotationAngles[0];
-                var axis = Autodesk.Revit.DB.Line.CreateUnbound(oldTransform.Origin, oldTransform.BasisZ);
-                Autodesk.Revit.DB.ElementTransformUtils.RotateElement(Document, new Autodesk.Revit.DB.ElementId(Id), axis, -rotateAngle);
+                var axis = DB.Line.CreateUnbound(oldTransform.Origin, oldTransform.BasisZ);
+                DB.ElementTransformUtils.RotateElement(Document, new DB.ElementId(Id), axis, -rotateAngle);
             }
 
             TransactionManager.Instance.TransactionTaskDone();
@@ -687,7 +763,7 @@ namespace Revit.Elements
         /// Get the transform of the internal family instance
         /// </summary>
         /// <returns>The internal transform</returns>
-        private Autodesk.Revit.DB.Transform InternalGetTransform()
+        private DB.Transform InternalGetTransform()
         {
             TransactionManager.Instance.EnsureInTransaction(Document);
 
@@ -699,9 +775,9 @@ namespace Revit.Elements
         private double GetRotationFromCS(CoordinateSystem fromCS, CoordinateSystem contextCS)
         {
             var elementTransform = this.InternalFamilyInstance.GetTransform();
-            var newTransform = contextCS.ToTransform() as Autodesk.Revit.DB.Transform;
+            var newTransform = contextCS.ToTransform() as DB.Transform;
 
-            var oldTransform = fromCS.ToTransform() as Autodesk.Revit.DB.Transform;
+            var oldTransform = fromCS.ToTransform() as DB.Transform;
 
             double[] oldRotationAngles;
             TransformUtils.ExtractEularAnglesFromTransform(oldTransform, out oldRotationAngles);
@@ -718,9 +794,9 @@ namespace Revit.Elements
         private void SetLocationFromCS(CoordinateSystem fromCS, CoordinateSystem contextCS)
         {
             var locationGeometry = this.InternalElement.Location;
-            if (locationGeometry is Autodesk.Revit.DB.LocationCurve)
+            if (locationGeometry is DB.LocationCurve)
             {
-                var locationCurve = locationGeometry as Autodesk.Revit.DB.LocationCurve;
+                var locationCurve = locationGeometry as DB.LocationCurve;
                 var dynamoCurve = locationCurve.Curve.ToProtoType();
                 var newLocation = dynamoCurve.Transform(fromCS, contextCS) as Curve;
                 locationCurve.Curve = newLocation.ToRevitType(true);
@@ -728,9 +804,9 @@ namespace Revit.Elements
                 newLocation.Dispose();
                 return;
             }
-            else if (locationGeometry is Autodesk.Revit.DB.LocationPoint)
+            else if (locationGeometry is DB.LocationPoint)
             {
-                var location = this.InternalElement.Location as Autodesk.Revit.DB.LocationPoint;
+                var location = this.InternalElement.Location as DB.LocationPoint;
                 var dynamoPoint = location.Point.ToPoint(true);
                 var newLocation = dynamoPoint.Transform(fromCS, contextCS) as Autodesk.DesignScript.Geometry.Point;
                 location.Point = newLocation.ToRevitType(true);
