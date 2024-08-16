@@ -1,5 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using Autodesk.Revit.DB;
+using RevitServices.Elements;
+using RevitServices.Persistence;
+using Creation = Autodesk.Revit.Creation;
 
 namespace RevitServices.Transactions
 {
@@ -13,7 +17,7 @@ namespace RevitServices.Transactions
         internal static void Log(string obj)
         {
             var handler = OnLog;
-            if (handler != null) 
+            if (handler != null)
                 handler(obj);
         }
 
@@ -38,7 +42,12 @@ namespace RevitServices.Transactions
         }
 
         private static TransactionManager manager;
-        
+
+        private Dictionary<string, int> BatchCreationDataLookup = new Dictionary<string, int>();
+        private List<Creation.FamilyInstanceCreationData> BatchCreationData = new List<Creation.FamilyInstanceCreationData>();
+        private List<ElementId> BatchCreationResult = new List<ElementId>();
+
+
         /// <summary>
         ///     Setup a manager with a default strategy
         /// </summary>
@@ -47,7 +56,7 @@ namespace RevitServices.Transactions
             Log("Setting up Transaction Manager with Default Strategy (Debug)");
             manager = new TransactionManager();
         }
-        
+
         /// <summary>
         ///     Setup a manager with a specified strategy
         /// </summary>
@@ -115,8 +124,28 @@ namespace RevitServices.Transactions
             }
             Strategy = strategy;
             TransactionWrapper = new TransactionWrapper();
+            TransactionWrapper.TransactionStarted += CleanupCreationData;
+            TransactionWrapper.TransactionAboutToCommit += PrepareCreationData;
             DoAssertInIdleThread = true;
             DisableTransactions = false;
+        }
+
+        private void PrepareCreationData()
+        {
+            if (BatchCreationData.Count == 0)
+            {
+                return;
+            }
+
+            var doc = DocumentManager.Instance.CurrentDBDocument;
+            BatchCreationResult.AddRange(doc.Create.NewFamilyInstances2(BatchCreationData));
+        }
+
+        private void CleanupCreationData()
+        {
+            BatchCreationDataLookup.Clear();
+            BatchCreationData.Clear();
+            BatchCreationResult.Clear();
         }
 
         /// <summary>
@@ -129,7 +158,7 @@ namespace RevitServices.Transactions
             //Hand off the behaviour to the strategy
             handle = Strategy.EnsureInTransaction(TransactionWrapper, document);
         }
-        
+
         /// <summary>
         ///     Notify that the transaction system that the operations
         ///     requiring a transaction are complete
@@ -139,7 +168,7 @@ namespace RevitServices.Transactions
             //Hand off the behaviour to the strategy
             Strategy.TransactionTaskDone(handle);
         }
-        
+
         /// <summary>
         ///     Require that the current transaction is recycled
         /// </summary>
@@ -149,12 +178,29 @@ namespace RevitServices.Transactions
             Strategy.ForceCloseTransaction(handle);
         }
 
+        public void AddCreationData(string batchProcessingId, Creation.FamilyInstanceCreationData cd)
+        {
+            BatchCreationDataLookup[batchProcessingId] = BatchCreationData.Count;
+            BatchCreationData.Add(cd);
+        }
+
+        public FamilyInstance GetInstanceFromCreationData(string batchProcessingId)
+        {
+            if (BatchCreationDataLookup.TryGetValue(batchProcessingId, out var idx) && BatchCreationResult.Count > idx &&
+                DocumentManager.Instance.CurrentDBDocument.TryGetElement<FamilyInstance>(BatchCreationResult[idx], out var inst))
+            {
+                return inst;
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Determines whether the TransactionManager checks to be in an IdleThread.
         /// </summary>
         public bool DoAssertInIdleThread { get; set; }
     }
-    
+
     /// <summary>
     ///     Contains logic for managing transactions in a dynamo graph evaluation.
     /// </summary>
@@ -196,7 +242,7 @@ namespace RevitServices.Transactions
             TransactionManager.Log("TransactionTaskDone - DEBUG STRAT: Ending Transaction");
             EndTransaction(handle);
         }
-        
+
         public void ForceCloseTransaction(TransactionHandle handle)
         {
             TransactionManager.Log("ForceCloseTransaction - DEBUG STRAT: Ending Transaction");
@@ -254,7 +300,7 @@ namespace RevitServices.Transactions
             handler = new WarningHandler(this);
             Handle = new TransactionHandle(this);
         }
-        
+
         /// <summary>
         ///     Event for handling failure messages from Revit.
         /// </summary>
@@ -264,6 +310,11 @@ namespace RevitServices.Transactions
         ///     Called when the managed Transaction is started.
         /// </summary>
         public event Action TransactionStarted;
+
+        /// <summary>
+        ///     Called when the managed Transaction is about to be committed.
+        /// </summary>
+        public event Action TransactionAboutToCommit;
 
         /// <summary>
         ///     Called when the managed Transaction is committed.
@@ -282,6 +333,8 @@ namespace RevitServices.Transactions
             if (TransactionStarted != null)
                 TransactionStarted();
         }
+
+        internal void RaiseTransactionAboutToCommit() => TransactionAboutToCommit?.Invoke();
 
         internal void RaiseTransactionCommitted()
         {
@@ -314,7 +367,7 @@ namespace RevitServices.Transactions
             if (Transaction == null || Transaction.GetStatus() != TransactionStatus.Started)
             {
                 TransactionManager.Log("Starting Transaction.");
-                
+
                 // Dispose the old transaction so that it won't impact the new transaction
                 if (null != Transaction && Transaction.IsValidObject)
                 {
@@ -385,6 +438,7 @@ namespace RevitServices.Transactions
         {
             if (manager != null)
             {
+                manager.RaiseTransactionAboutToCommit();
                 if (manager.Transaction.GetStatus() == TransactionStatus.Started)
                 {
                     TransactionManager.Log("Committing Transaction.");

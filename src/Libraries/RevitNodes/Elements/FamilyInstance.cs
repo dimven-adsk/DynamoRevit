@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Autodesk.DesignScript.Geometry;
+using Autodesk.Revit.Creation;
 using DynamoServices;
 using DynamoUnits;
 using Revit.Elements.InternalUtilities;
@@ -20,7 +21,6 @@ namespace Revit.Elements
     [RegisterForTrace]
     public class FamilyInstance : AbstractFamilyInstance
     {
-
         #region Private constructors
 
         /// <summary>
@@ -103,24 +103,60 @@ namespace Revit.Elements
             if (!fs.IsActive)
                 fs.Activate();
 
-            Autodesk.Revit.DB.FamilyInstance fi;
-
-            if (Document.IsFamilyDocument)
+            if (EnableBatchProcessing)
             {
-                fi = Document.FamilyCreate.NewFamilyInstance(pos, fs, level,
-                    Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                BatchProcessingId = Guid.NewGuid().ToString();
+                var cd = new FamilyInstanceCreationData(pos, fs, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                TransactionManager.Instance.AddCreationData(BatchProcessingId, cd);
+                TransactionManager.Instance.TransactionWrapper.TransactionCommitted += ResolveInternalElement;
             }
             else
             {
-                fi = Document.Create.NewFamilyInstance(
-                    pos, fs, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
-            }
+                Autodesk.Revit.DB.FamilyInstance fi;
+                if (Document.IsFamilyDocument)
+                {
+                    fi = Document.FamilyCreate.NewFamilyInstance(pos, fs, level,
+                        Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                }
+                else
+                {
+                    fi = Document.Create.NewFamilyInstance(
+                        pos, fs, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                }
 
-            InternalSetFamilyInstance(fi);
+                InternalSetFamilyInstance(fi);
+
+                ElementBinder.SetElementForTrace(InternalElement);
+            }
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalElement);
+        }
+
+        private void ResolveInternalElement()
+        {
+            TransactionManager.Instance.TransactionWrapper.TransactionCommitted -= ResolveInternalElement;
+
+            var fi = TransactionManager.Instance.GetInstanceFromCreationData(BatchProcessingId);
+            if (fi != null)
+            {
+                InternalSetFamilyInstance(fi);
+
+                ElementBinder.SetElementForTrace(InternalElement);
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            var id = BatchProcessingId ?? InternalUniqueId;
+            return id.GetHashCode();
+        }
+
+        public override void Dispose()
+        {
+            base.Dispose();
+
+            TransactionManager.Instance.TransactionWrapper.TransactionCommitted -= ResolveInternalElement;
         }
 
         /// <summary>
@@ -181,8 +217,8 @@ namespace Revit.Elements
             if (!fs.IsActive)
                 fs.Activate();
 
-            var fi = Document.IsFamilyDocument 
-                ? Document.FamilyCreate.NewFamilyInstance(reference, pos, fs) 
+            var fi = Document.IsFamilyDocument
+                ? Document.FamilyCreate.NewFamilyInstance(reference, pos, fs)
                 : Document.Create.NewFamilyInstance(reference, pos, fs);
 
             InternalSetFamilyInstance(fi);
@@ -215,8 +251,8 @@ namespace Revit.Elements
             if (!fs.IsActive)
                 fs.Activate();
 
-            var fi = Document.IsFamilyDocument 
-                ? Document.FamilyCreate.NewFamilyInstance(reference,  location, referenceDirection, fs) 
+            var fi = Document.IsFamilyDocument
+                ? Document.FamilyCreate.NewFamilyInstance(reference, location, referenceDirection, fs)
                 : Document.Create.NewFamilyInstance(reference, location, referenceDirection, fs);
 
             InternalSetFamilyInstance(fi);
@@ -329,7 +365,7 @@ namespace Revit.Elements
         {
             get
             {
-                return InternalFamilyInstance.IsValidObject ? 
+                return InternalFamilyInstance.IsValidObject ?
                     InternalFamilyInstance.FacingOrientation.ToVector() : null;
             }
         }
@@ -362,6 +398,9 @@ namespace Revit.Elements
             }
         }
 
+        public static bool EnableBatchProcessing = true;
+        private string BatchProcessingId;
+
         #endregion
 
         #region Public static constructors
@@ -377,8 +416,8 @@ namespace Revit.Elements
             if (familyType == null)
             {
                 throw new ArgumentNullException("familyType");
-            } 
-            
+            }
+
             if (point == null)
             {
                 throw new ArgumentNullException("point");
@@ -413,7 +452,7 @@ namespace Revit.Elements
             }
             var reference = ElementFaceReference.TryGetFaceReference(face);
 
-            return new FamilyInstance(familyType.InternalFamilySymbol, reference.InternalReference, (Autodesk.Revit.DB.Line) line.ToRevitType());
+            return new FamilyInstance(familyType.InternalFamilySymbol, reference.InternalReference, (Autodesk.Revit.DB.Line)line.ToRevitType());
         }
 
         /// <summary>
@@ -427,7 +466,7 @@ namespace Revit.Elements
         /// <param name="location">Point on the face where the instance is to be placed</param>
         /// <param name="referenceDirection">A vector that defines the direction of placement of the family instance</param>
         /// <returns>FamilyInstance</returns>
-        public static FamilyInstance ByFace(FamilyType familyType, Surface face, Point location, 
+        public static FamilyInstance ByFace(FamilyType familyType, Surface face, Point location,
             Vector referenceDirection)
         {
             if (familyType == null)
@@ -448,7 +487,7 @@ namespace Revit.Elements
             }
             var reference = ElementFaceReference.TryGetFaceReference(face);
 
-            return new FamilyInstance(familyType.InternalFamilySymbol, reference.InternalReference, 
+            return new FamilyInstance(familyType.InternalFamilySymbol, reference.InternalReference,
                 location.ToXyz(), referenceDirection.ToXyz());
         }
 
@@ -594,10 +633,10 @@ namespace Revit.Elements
         /// <summary>
         /// Gets the family of this family instance
         /// </summary>
-        public Family GetFamily 
-        { 
-            get 
-            { 
+        public Family GetFamily
+        {
+            get
+            {
                 return Family.FromExisting(this.InternalFamilyInstance.Symbol.Family, true);
             }
         }
@@ -613,7 +652,7 @@ namespace Revit.Elements
             get { return base.Type; }
         }
 
-        
+
 
         /// <summary>
         /// Set the Euler angle of the family instance around its local Z-axis.
