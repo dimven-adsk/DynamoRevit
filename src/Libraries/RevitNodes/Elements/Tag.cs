@@ -1,11 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Autodesk.DesignScript.Runtime;
 using Autodesk.Revit.DB;
 using Revit.GeometryConversion;
 using RevitServices.Persistence;
 using RevitServices.Transactions;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Revit.Elements
 {
@@ -113,7 +113,7 @@ namespace Revit.Elements
             var hostElementIds = new List<ElementId>();
             var linkedElementIds = new List<ElementId>();
 
-            if(tagElem != null)
+            if (tagElem != null)
             {
                 hostElementIds.AddRange(tagElem.GetTaggedElementIds().Select(x => x.HostElementId));
                 linkedElementIds.AddRange(tagElem.GetTaggedElementIds().Select(x => x.LinkedElementId));
@@ -255,7 +255,7 @@ namespace Revit.Elements
         /// <search>
         /// tagelement,annotate,documentation
         /// </search>
-        public static Tag ByElement(Revit.Elements.Views.View view, Element element, bool horizontal, bool addLeader, string horizontalAlignment, string verticalAlignment, [DefaultArgument("Autodesk.DesignScript.Geometry.Vector.ByCoordinates(0,0,0)")]Autodesk.DesignScript.Geometry.Vector offset, bool isOffset = true)
+        public static Tag ByElement(Revit.Elements.Views.View view, Element element, bool horizontal, bool addLeader, string horizontalAlignment, string verticalAlignment, [DefaultArgument("Autodesk.DesignScript.Geometry.Vector.ByCoordinates(0,0,0)")] Autodesk.DesignScript.Geometry.Vector offset, bool isOffset = true)
         {
             Autodesk.Revit.DB.HorizontalAlignmentStyle horizontalAlignmentStyle = HorizontalAlignmentStyle.Center;
             if (!Enum.TryParse<Autodesk.Revit.DB.HorizontalAlignmentStyle>(horizontalAlignment, out horizontalAlignmentStyle))
@@ -324,7 +324,7 @@ namespace Revit.Elements
         /// <search>
         /// tagelement,annotate,documentation,tagoffset,movetag
         /// </search>
-        public static Tag ByElementAndOffset(Revit.Elements.Views.View view, Element element, [DefaultArgument("Autodesk.DesignScript.Geometry.Vector.ByCoordinates(0,0,0)")]Autodesk.DesignScript.Geometry.Vector offset, string horizontalAlignment = "Center", string verticalAlignment = "Middle", bool horizontal = true, bool addLeader = false)
+        public static Tag ByElementAndOffset(Revit.Elements.Views.View view, Element element, [DefaultArgument("Autodesk.DesignScript.Geometry.Vector.ByCoordinates(0,0,0)")] Autodesk.DesignScript.Geometry.Vector offset, string horizontalAlignment = "Center", string verticalAlignment = "Middle", bool horizontal = true, bool addLeader = false)
         {
             Autodesk.Revit.DB.HorizontalAlignmentStyle horizontalAlignmentStyle = HorizontalAlignmentStyle.Center;
             if (!Enum.TryParse<Autodesk.Revit.DB.HorizontalAlignmentStyle>(horizontalAlignment, out horizontalAlignmentStyle))
@@ -339,7 +339,7 @@ namespace Revit.Elements
             }
 
             Autodesk.Revit.DB.View revitView = (Autodesk.Revit.DB.View)view.InternalElement;
-            
+
             // Tagging elements by element category
             Autodesk.Revit.DB.TagMode tagMode = TagMode.TM_ADDBY_CATEGORY;
 
@@ -373,10 +373,11 @@ namespace Revit.Elements
         /// </summary>
         public Revit.Elements.Element TaggedElement
         {
-            get {
+            get
+            {
                 var eles = this.InternalTextNote.GetTaggedLocalElements();
                 if (eles.Count == 1)
-                    return (Revit.Elements.Element)ElementWrapper.Wrap(eles.First(), true);
+                    return eles.First().ToDSType(true);
                 else
                     throw new Exception(Properties.Resources.GetTaggedLocalElements);
             }
@@ -407,7 +408,7 @@ namespace Revit.Elements
             TransactionManager.Instance.EnsureInTransaction(document);
 
             tagElem.TagHeadPosition = point;
-            
+
             double rotation = (tagElem.TagOrientation == TagOrientation.Horizontal) ? 0 : 90;
             InternalSetType(tagElem.TagText, tagElem.TagHeadPosition, rotation);
 
@@ -469,7 +470,7 @@ namespace Revit.Elements
             get
             {
                 if (this.InternalTextNote.HasLeader)
-                    if(this.InternalTextNote.LeaderEndCondition.Equals(LeaderEndCondition.Free))
+                    if (this.InternalTextNote.LeaderEndCondition.Equals(LeaderEndCondition.Free))
                     {
                         var refs = InternalTextNote.GetTaggedReferences();
                         if (refs.Count == 1)
@@ -477,7 +478,7 @@ namespace Revit.Elements
                         else
                             throw new Exception(Properties.Resources.GetTaggedReferences);
                     }
-                        
+
                 return null;
             }
         }
@@ -545,7 +546,7 @@ namespace Revit.Elements
         internal static Tag FromExisting(Autodesk.Revit.DB.IndependentTag instance, bool isRevitOwned)
         {
             return new Tag(instance)
-            { 
+            {
                 IsRevitOwned = isRevitOwned
             };
         }
