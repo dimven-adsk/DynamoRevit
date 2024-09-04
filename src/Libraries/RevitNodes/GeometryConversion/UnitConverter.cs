@@ -10,17 +10,29 @@ namespace Revit.GeometryConversion
     [SupressImportIntoVM]
     public static class UnitConverter
     {
+        // we should ideally only read the document units once per the graph's execution
+        private static Units CurrentDocumentUnits = null;
+
+        /// <summary>
+        /// This method should be called any time when the document units cache should be reset.
+        /// For example, between two graph executions, because the user might decide to change
+        /// the units in Revit
+        /// </summary>
+        public static void ClearCache() => CurrentDocumentUnits = null;
+
         public static double DynamoToHostFactor(ForgeTypeId specTypeId)
         {
             if (!UnitUtils.IsMeasurableSpec(specTypeId))
             {
                 return 1.0;
             }
-            var unitTypeId =
-                DocumentManager.Instance.CurrentDBDocument.GetUnits()
-                    .GetFormatOptions(specTypeId)
-                    .GetUnitTypeId();
-           
+            if (CurrentDocumentUnits == null)
+            {
+                CurrentDocumentUnits = DocumentManager.Instance.CurrentDBDocument.GetUnits();
+            }
+
+            var unitTypeId = CurrentDocumentUnits.GetFormatOptions(specTypeId).GetUnitTypeId();
+
             // Here we use the Revit API to return the conversion
             // factor between the display units in Revit and the internal
             // units (decimal feet). We are not converting a value, so 
@@ -74,7 +86,7 @@ namespace Revit.GeometryConversion
         {
             // Here we invert the conversion factor to return
             // the conversion from internal units to display units.
-            return 1/DynamoToHostFactor(specTypeId);
+            return 1 / DynamoToHostFactor(specTypeId);
         }
 
         /// <summary>
@@ -117,7 +129,7 @@ namespace Revit.GeometryConversion
             var result = (T)geometry.Scale(DynamoToHostFactor(SpecTypeId.Length));
             return result;
         }
-        
+
         /// <summary>
         /// Convert the geometry to Dynamo units if convert is true.
         /// The input geometry will be disposed and a converted geometry
