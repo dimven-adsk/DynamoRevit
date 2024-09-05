@@ -462,7 +462,7 @@ namespace Revit.Elements
         }
 
         [Obsolete("Please use ToDsType instead")]
-        public static View3D Wrap(Autodesk.Revit.DB.View3D view, bool isRevitOwned)
+        public static Revit.Elements.Views.View3D Wrap(Autodesk.Revit.DB.View3D view, bool isRevitOwned)
         {
             if (!view.IsTemplate)
             {
