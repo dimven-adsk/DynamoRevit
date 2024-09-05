@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.DesignScript.Runtime;
-using Autodesk.Revit.DB;
-using Revit.Elements.Views;
 using RevitServices.Persistence;
+using DB = Autodesk.Revit.DB;
 
 namespace Revit.Elements.InternalUtilities
 {
@@ -13,45 +12,45 @@ namespace Revit.Elements.InternalUtilities
     {
         internal static readonly HashSet<Type> ClassFilterExceptions = new HashSet<Type>
         {
-            typeof(Autodesk.Revit.DB.HostedSweep),
-            typeof(Autodesk.Revit.DB.Architecture.Room),
-            typeof(Autodesk.Revit.DB.Mechanical.Space),
-            typeof(Autodesk.Revit.DB.Area),
-            typeof(Autodesk.Revit.DB.Architecture.RoomTag),
-            typeof(Autodesk.Revit.DB.Mechanical.SpaceTag),
-            typeof(Autodesk.Revit.DB.AreaTag),
-            typeof(Autodesk.Revit.DB.Mullion),
-            typeof(Autodesk.Revit.DB.Panel),
-            typeof(Autodesk.Revit.DB.AnnotationSymbol),
-            typeof(Autodesk.Revit.DB.Structure.AreaReinforcementType),
-            typeof(Autodesk.Revit.DB.Structure.PathReinforcementType),
-            typeof(Autodesk.Revit.DB.AnnotationSymbolType),
-            typeof(Autodesk.Revit.DB.Architecture.RoomTagType),
-            typeof(Autodesk.Revit.DB.Mechanical.SpaceTagType),
-            typeof(Autodesk.Revit.DB.AreaTagType),
-            typeof(Autodesk.Revit.DB.Structure.TrussType),
-            typeof(Autodesk.Revit.DB.Structure.AreaReinforcementCurve),
-            typeof(Autodesk.Revit.DB.CurveByPoints),
-            typeof(Autodesk.Revit.DB.DetailArc),
-            typeof(Autodesk.Revit.DB.DetailCurve),
-            typeof(Autodesk.Revit.DB.DetailEllipse),
-            typeof(Autodesk.Revit.DB.DetailLine),
-            typeof(Autodesk.Revit.DB.DetailNurbSpline),
-            typeof(Autodesk.Revit.DB.Architecture.Fascia),
-            typeof(Autodesk.Revit.DB.Architecture.Gutter),
-            typeof(Autodesk.Revit.DB.ModelArc),
-            typeof(Autodesk.Revit.DB.ModelCurve),
-            typeof(Autodesk.Revit.DB.ModelEllipse),
-            typeof(Autodesk.Revit.DB.ModelHermiteSpline),
-            typeof(Autodesk.Revit.DB.ModelLine),
-            typeof(Autodesk.Revit.DB.ModelNurbSpline),
-            typeof(Autodesk.Revit.DB.SlabEdge),
-            typeof(Autodesk.Revit.DB.SymbolicCurve)
+            typeof(DB.HostedSweep),
+            typeof(DB.Architecture.Room),
+            typeof(DB.Mechanical.Space),
+            typeof(DB.Area),
+            typeof(DB.Architecture.RoomTag),
+            typeof(DB.Mechanical.SpaceTag),
+            typeof(DB.AreaTag),
+            typeof(DB.Mullion),
+            typeof(DB.Panel),
+            typeof(DB.AnnotationSymbol),
+            typeof(DB.Structure.AreaReinforcementType),
+            typeof(DB.Structure.PathReinforcementType),
+            typeof(DB.AnnotationSymbolType),
+            typeof(DB.Architecture.RoomTagType),
+            typeof(DB.Mechanical.SpaceTagType),
+            typeof(DB.AreaTagType),
+            typeof(DB.Structure.TrussType),
+            typeof(DB.Structure.AreaReinforcementCurve),
+            typeof(DB.CurveByPoints),
+            typeof(DB.DetailArc),
+            typeof(DB.DetailCurve),
+            typeof(DB.DetailEllipse),
+            typeof(DB.DetailLine),
+            typeof(DB.DetailNurbSpline),
+            typeof(DB.Architecture.Fascia),
+            typeof(DB.Architecture.Gutter),
+            typeof(DB.ModelArc),
+            typeof(DB.ModelCurve),
+            typeof(DB.ModelEllipse),
+            typeof(DB.ModelHermiteSpline),
+            typeof(DB.ModelLine),
+            typeof(DB.ModelNurbSpline),
+            typeof(DB.SlabEdge),
+            typeof(DB.SymbolicCurve)
         };
 
         internal static Type GetClassFilterExceptionsValidType(Type elementType)
         {
-            if(ClassFilterExceptions.Contains(elementType.BaseType))
+            if (ClassFilterExceptions.Contains(elementType.BaseType))
             {
                 return GetClassFilterExceptionsValidType(elementType.BaseType);
             }
@@ -65,19 +64,16 @@ namespace Revit.Elements.InternalUtilities
         {
             if (familyType == null) return null;
 
-            var instanceFilter = new Autodesk.Revit.DB.ElementClassFilter(typeof(Autodesk.Revit.DB.FamilyInstance));
-            var fec = new Autodesk.Revit.DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument);
+            var doc = DocumentManager.Instance.CurrentDBDocument;
+            var instanceFilter = new DB.ElementClassFilter(typeof(DB.FamilyInstance));
+            var typeFilter = new DB.FamilyInstanceFilter(doc, familyType.InternalElement.Id);
+            var fec = new DB.FilteredElementCollector(doc);
 
-            var familyInstances = fec.WherePasses(instanceFilter)
-                .WhereElementIsNotElementType()
-                .ToElements()
-                .Cast<Autodesk.Revit.DB.FamilyInstance>();
-
-            var matches = familyInstances.Where(x => x.Symbol.Id == familyType.InternalFamilySymbol.Id);
-
-            var instances = matches
-                .Select(x => ElementSelector.ByElementId(x.Id.Value)).ToList();
-            return instances;
+            return fec.WhereElementIsNotElementType()
+                .WherePasses(instanceFilter)
+                .WherePasses(typeFilter)
+                .Select(e => e.ToDSType(true))
+                .ToList();
         }
 
         public static IList<Element> OfElementType(Type elementType)
@@ -95,18 +91,17 @@ namespace Revit.Elements.InternalUtilities
             if (ClassFilterExceptions.Contains(elementType))
             {
                 var type = GetClassFilterExceptionsValidType(elementType);
-                return new Autodesk.Revit.DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument)
+                return new DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument)
                     .OfClass(type)
                     .Where(x => x.GetType() == elementType)
-                    .Select(x => ElementSelector.ByElementId(x.Id.Value))
+                    .Select(e => e.ToDSType(true))
                     .ToList();
             }
 
-            var classFilter = new Autodesk.Revit.DB.ElementClassFilter(elementType);
-            return new Autodesk.Revit.DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument)
+            var classFilter = new DB.ElementClassFilter(elementType);
+            return new DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument)
                 .WherePasses(classFilter)
-                .ToElementIds()
-                .Select(x => ElementSelector.ByElementId(x.Value))
+                .Select(e => e.ToDSType(true))
                 .ToList();
         }
 
@@ -114,15 +109,14 @@ namespace Revit.Elements.InternalUtilities
         {
             if (category == null) return null;
 
-            var catFilter = new Autodesk.Revit.DB.ElementCategoryFilter(category.InternalCategory.Id);
-            var fec = (view == null) ? 
-                new Autodesk.Revit.DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument) :
-                new Autodesk.Revit.DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument, view.InternalView.Id);
-            var instances = 
+            var catFilter = new DB.ElementCategoryFilter(category.InternalCategory.Id);
+            var fec = (view == null) ?
+                new DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument) :
+                new DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument, view.InternalView.Id);
+            var instances =
                 fec.WherePasses(catFilter)
                     .WhereElementIsNotElementType()
-                    .ToElementIds()
-                    .Select(id => ElementSelector.ByElementId(id.Value))
+                    .Select(e => e.ToDSType(true))
                     .ToList();
             return instances;
         }
@@ -131,13 +125,12 @@ namespace Revit.Elements.InternalUtilities
         {
             if (arg == null) return null;
 
-            var levFilter = new Autodesk.Revit.DB.ElementLevelFilter(arg.InternalLevel.Id);
-            var fec = new Autodesk.Revit.DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument);
+            var levFilter = new DB.ElementLevelFilter(arg.InternalLevel.Id);
+            var fec = new DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument);
             var instances =
                 fec.WherePasses(levFilter)
                     .WhereElementIsNotElementType()
-                    .ToElementIds()
-                    .Select(id => ElementSelector.ByElementId(id.Value))
+                    .Select(e => e.ToDSType(true))
                     .ToList();
             return instances;
         }
@@ -148,8 +141,8 @@ namespace Revit.Elements.InternalUtilities
                 return null;
 
             // handle ElementId types first
-            if (id.GetType() == typeof(Autodesk.Revit.DB.ElementId))
-                return ElementSelector.ByElementId(((Autodesk.Revit.DB.ElementId)id).Value);
+            if (id.GetType() == typeof(DB.ElementId))
+                return ElementSelector.ByElementId(((DB.ElementId)id).Value);
 
             var idType = Type.GetTypeCode(id.GetType());
             Element element;
@@ -175,38 +168,38 @@ namespace Revit.Elements.InternalUtilities
 
                     element = ElementSelector.ByUniqueId(idString);
                     break;
-                    
+
                 default:
                     throw new InvalidOperationException(Revit.Properties.Resources.InvalidElementId);
             }
-                
+
             return element;
         }
 
-        internal static IEnumerable<Autodesk.Revit.DB.Level> GetAllLevels()
+        internal static IEnumerable<DB.Level> GetAllLevels()
         {
-            var collector = new Autodesk.Revit.DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument);
-            collector.OfClass(typeof(Autodesk.Revit.DB.Level));
-            return collector.ToElements().Cast<Autodesk.Revit.DB.Level>();
+            var collector = new DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument);
+            collector.OfClass(typeof(DB.Level));
+            return collector.Cast<DB.Level>();
         }
 
         public static List<List<Element>> RoomsByStatus()
         {
             var roomsByStatus = new List<List<Element>>();
-            Document doc = DocumentManager.Instance.CurrentDBDocument;
-            var allRooms = new FilteredElementCollector(doc)
-                .OfCategory(BuiltInCategory.OST_Rooms)
+            DB.Document doc = DocumentManager.Instance.CurrentDBDocument;
+            var allRooms = new DB.FilteredElementCollector(doc)
+                .OfCategory(DB.BuiltInCategory.OST_Rooms)
                 .WhereElementIsNotElementType()
-                .Cast<Autodesk.Revit.DB.Architecture.Room>();
-            
+                .Cast<DB.Architecture.Room>();
+
             var placedRooms = new List<Revit.Elements.Element>();
             var unplacedRooms = new List<Revit.Elements.Element>();
             var notEnclosedRooms = new List<Revit.Elements.Element>();
             var redundantRooms = new List<Revit.Elements.Element>();
 
-            SpatialElementBoundaryOptions opt = new SpatialElementBoundaryOptions();
+            var opt = new DB.SpatialElementBoundaryOptions();
 
-            foreach (Autodesk.Revit.DB.Architecture.Room room in allRooms)
+            foreach (DB.Architecture.Room room in allRooms)
             {
                 var dsRoom = room.ToDSType(true);
                 if (room.Area > 0)
