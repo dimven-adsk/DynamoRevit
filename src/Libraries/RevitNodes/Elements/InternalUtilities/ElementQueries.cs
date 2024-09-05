@@ -64,11 +64,14 @@ namespace Revit.Elements.InternalUtilities
         {
             if (familyType == null) return null;
 
+            var doc = DocumentManager.Instance.CurrentDBDocument;
             var instanceFilter = new DB.ElementClassFilter(typeof(DB.FamilyInstance));
-            var fec = new DB.FilteredElementCollector(DocumentManager.Instance.CurrentDBDocument);
+            var typeFilter = new DB.FamilyInstanceFilter(doc, familyType.InternalElement.Id);
+            var fec = new DB.FilteredElementCollector(doc);
 
-            return fec.WherePasses(instanceFilter)
-                .WhereElementIsNotElementType()
+            return fec.WhereElementIsNotElementType()
+                .WherePasses(instanceFilter)
+                .WherePasses(typeFilter)
                 .Select(e => e.ToDSType(true))
                 .ToList();
         }
