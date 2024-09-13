@@ -225,10 +225,10 @@ namespace RevitServices.Elements
             IEnumerable<string> transactions)
         {
             var transactionList = transactions as IList<string> ?? transactions.ToList();
-            OnElementsDeleted(new ElementUpdateEventArgs(doc, deleted.Distinct(), transactionList, ElementUpdateEventArgs.UpdateType.Deleted));
-            OnElementsModified(new ElementUpdateEventArgs(doc, modified.Distinct(), transactionList, ElementUpdateEventArgs.UpdateType.Modified));
+            OnElementsDeleted(new ElementUpdateEventArgs(doc, new LazyHashSet<ElementId>(deleted), transactionList, ElementUpdateEventArgs.UpdateType.Deleted));
+            OnElementsModified(new ElementUpdateEventArgs(doc, new LazyHashSet<ElementId>(modified), transactionList, ElementUpdateEventArgs.UpdateType.Modified));
 
-            var addedElements = added.Distinct().ToList();
+            var addedElements = new LazyHashSet<ElementId>(added);
             OnElementsAdded(new ElementUpdateEventArgs(doc, addedElements, transactionList, ElementUpdateEventArgs.UpdateType.Added));
             OnElementIdsAdded(new ElementUpdateEventArgs(doc, addedElements, transactionList, ElementUpdateEventArgs.UpdateType.Added));
         }
