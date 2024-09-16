@@ -225,12 +225,18 @@ namespace RevitServices.Elements
             IEnumerable<string> transactions)
         {
             var transactionList = transactions as IList<string> ?? transactions.ToList();
-            OnElementsDeleted(new ElementUpdateEventArgs(doc, new LazyHashSet<ElementId>(deleted), transactionList, ElementUpdateEventArgs.UpdateType.Deleted));
-            OnElementsModified(new ElementUpdateEventArgs(doc, new LazyHashSet<ElementId>(modified), transactionList, ElementUpdateEventArgs.UpdateType.Modified));
+            if (deleted.Any())
+                OnElementsDeleted(new ElementUpdateEventArgs(doc, new LazyHashSet<ElementId>(deleted), transactionList, ElementUpdateEventArgs.UpdateType.Deleted));
 
-            var addedElements = new LazyHashSet<ElementId>(added);
-            OnElementsAdded(new ElementUpdateEventArgs(doc, addedElements, transactionList, ElementUpdateEventArgs.UpdateType.Added));
-            OnElementIdsAdded(new ElementUpdateEventArgs(doc, addedElements, transactionList, ElementUpdateEventArgs.UpdateType.Added));
+            if (modified.Any())
+                OnElementsModified(new ElementUpdateEventArgs(doc, new LazyHashSet<ElementId>(modified), transactionList, ElementUpdateEventArgs.UpdateType.Modified));
+
+            if (added.Any())
+            {
+                var addedElements = new LazyHashSet<ElementId>(added);
+                OnElementsAdded(new ElementUpdateEventArgs(doc, addedElements, transactionList, ElementUpdateEventArgs.UpdateType.Added));
+                OnElementIdsAdded(new ElementUpdateEventArgs(doc, addedElements, transactionList, ElementUpdateEventArgs.UpdateType.Added));
+            }
         }
 
         public void ApplicationDocumentChanged(object sender, DocumentChangedEventArgs args)
