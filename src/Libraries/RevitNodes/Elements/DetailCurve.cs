@@ -55,7 +55,7 @@ namespace Revit.Elements
             // Open Transaction and get document
             Autodesk.Revit.DB.Document document = DocumentManager.Instance.CurrentDBDocument;
             TransactionManager.Instance.EnsureInTransaction(document);
-            
+
             // Get exsiting element
             var element = ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.DetailCurve>(document);
 
@@ -68,18 +68,18 @@ namespace Revit.Elements
                 else
                 {
                     element = document.Create.NewDetailCurve(view, curve);
-                }                
+                }
             }
             else
             {
-                element.SetGeometryCurve(curve, true);                
+                element.SetGeometryCurve(curve, true);
             }
 
             InternalSetCurveElement(element);
 
             // Set transaction task done & element for trace
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -128,7 +128,7 @@ namespace Revit.Elements
         new public Autodesk.DesignScript.Geometry.Curve Curve
         {
             get
-            { 
+            {
                 return this.InternalCurveElement.GeometryCurve.ToProtoType();
             }
         }
@@ -140,7 +140,7 @@ namespace Revit.Elements
         {
             Autodesk.Revit.DB.Document document = DocumentManager.Instance.CurrentDBDocument;
             TransactionManager.Instance.EnsureInTransaction(document);
-            this.InternalCurveElement.SetGeometryCurve(curve.ToRevitType(),true);
+            this.InternalCurveElement.SetGeometryCurve(curve.ToRevitType(), true);
             TransactionManager.Instance.TransactionTaskDone();
         }
 
@@ -151,7 +151,7 @@ namespace Revit.Elements
         internal static DetailCurve FromExisting(Autodesk.Revit.DB.DetailCurve instance, bool isRevitOwned)
         {
             return new DetailCurve(instance)
-            { 
+            {
                 IsRevitOwned = isRevitOwned
             };
         }

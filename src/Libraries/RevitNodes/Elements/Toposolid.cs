@@ -97,7 +97,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalToposolid);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -113,7 +113,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalToposolid);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -129,7 +129,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalToposolid);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -281,7 +281,7 @@ namespace Revit.Elements
         /// <returns></returns>
         /// <exception cref="System.ArgumentNullException"></exception>
         /// <exception cref="System.ArgumentException"></exception>
-        public static Toposolid ByOutlineTypeAndLevel(PolyCurve outline,  ToposolidType toposolidType, Level level)
+        public static Toposolid ByOutlineTypeAndLevel(PolyCurve outline, ToposolidType toposolidType, Level level)
         {
             if (outline == null)
             {
@@ -349,7 +349,7 @@ namespace Revit.Elements
             DocumentManager.Regenerate();
             return toposolid;
         }
-        
+
         #endregion
 
         #region Internal static constructors

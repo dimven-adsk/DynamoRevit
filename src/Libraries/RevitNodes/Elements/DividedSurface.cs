@@ -108,7 +108,7 @@ namespace Revit.Elements
             TransactionManager.Instance.TransactionTaskDone();
 
             // remember this new value
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -190,7 +190,7 @@ namespace Revit.Elements
         {
             TransactionManager.Instance.EnsureInTransaction(Document);
 
-            if(!InternalDividedSurface.AllGridRotation.AlmostEquals(rotation, 1.0e-6))
+            if (!InternalDividedSurface.AllGridRotation.AlmostEquals(rotation, 1.0e-6))
                 InternalDividedSurface.AllGridRotation = rotation;
 
             TransactionManager.Instance.TransactionTaskDone();

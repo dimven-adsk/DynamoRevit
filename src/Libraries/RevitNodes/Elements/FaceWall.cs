@@ -85,10 +85,10 @@ namespace Revit.Elements
             var wall = Autodesk.Revit.DB.FaceWall.Create(Document, wallType.Id, location, reference);
 
             InternalSetFaceWall(wall);
-            
+
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalFaceWall);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion

@@ -33,7 +33,7 @@ namespace Revit.Elements
         {
             get { return InternalRevitElement; }
         }
-       
+
         #endregion
 
         #region Private constructors
@@ -101,12 +101,12 @@ namespace Revit.Elements
 
             // Apply name and number if set
             if (!string.IsNullOrEmpty(name))
-            { 
+            {
                 RoomElem.Name = name;
             }
 
             if (!string.IsNullOrEmpty(number))
-            { 
+            {
                 RoomElem.Number = number;
             }
 
@@ -115,7 +115,7 @@ namespace Revit.Elements
             // Commit transaction
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion      
@@ -187,7 +187,7 @@ namespace Revit.Elements
         /// </summary>
         new public string Name
         {
-            get{ return this.InternalRevitElement.get_Parameter(BuiltInParameter.ROOM_NAME).AsString();  }           
+            get { return this.InternalRevitElement.get_Parameter(BuiltInParameter.ROOM_NAME).AsString(); }
         }
 
         /// <summary>
@@ -205,7 +205,7 @@ namespace Revit.Elements
         {
             get
             {
-               return this.InternalRevitElement.Area * UnitConverter.HostToDynamoFactor(SpecTypeId.Area);
+                return this.InternalRevitElement.Area * UnitConverter.HostToDynamoFactor(SpecTypeId.Area);
             }
         }
 
@@ -329,7 +329,7 @@ namespace Revit.Elements
         internal static Room FromExisting(Autodesk.Revit.DB.Architecture.Room instance, bool isRevitOwned)
         {
             return new Room(instance)
-            { 
+            {
                 IsRevitOwned = isRevitOwned
             };
         }

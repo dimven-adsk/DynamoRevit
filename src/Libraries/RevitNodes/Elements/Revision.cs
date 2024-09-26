@@ -106,10 +106,10 @@ namespace Revit.Elements
             var RevisionElem = ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.Revision>(document);
 
             if (RevisionElem == null)
-            { 
-                RevisionElem = Autodesk.Revit.DB.Revision.Create(document); 
+            {
+                RevisionElem = Autodesk.Revit.DB.Revision.Create(document);
             }
-            
+
             // Apply properties
             if (RevisionElem.Visibility != visibility)
             {
@@ -151,7 +151,8 @@ namespace Revit.Elements
 
             // commit transaction and set element for trace
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.SetElementForTrace(this.InternalElement);
+
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         private static ElementId GetRevisionNumberingSequence(RevisionNumberType numberType)
@@ -173,7 +174,7 @@ namespace Revit.Elements
                     break;
                 }
             }
-            if(revisionNumberingSequenceId == ElementId.InvalidElementId)
+            if (revisionNumberingSequenceId == ElementId.InvalidElementId)
             {
                 RevisionNumberingSequence revisionNumberingSequence;
                 switch (numberType)
@@ -187,9 +188,9 @@ namespace Revit.Elements
                         revisionNumberingSequenceId = revisionNumberingSequence.Id;
                         break;
                 }
-                
+
             }
-            
+
             return revisionNumberingSequenceId;
         }
 
@@ -209,11 +210,11 @@ namespace Revit.Elements
         /// <param name="issuedTo">Issued to</param>
         /// <param name="numberType">Number type</param>
         /// <returns></returns>
-        public static Revision ByName(string name, string revDate, string description, bool issued, string issuedBy, string issuedTo, string visibility = "",string numberType = "")
+        public static Revision ByName(string name, string revDate, string description, bool issued, string issuedBy, string issuedTo, string visibility = "", string numberType = "")
         {
             RevisionVisibility revVisibility = RevisionVisibility.CloudAndTagVisible;
             if (!Enum.TryParse<RevisionVisibility>(visibility, out revVisibility)) revVisibility = RevisionVisibility.CloudAndTagVisible;
-            
+
             RevisionNumberType revNumberType = RevisionNumberType.Alphanumeric;
             if (!Enum.TryParse<RevisionNumberType>(numberType, out revNumberType)) revNumberType = RevisionNumberType.Alphanumeric;
 
@@ -221,7 +222,7 @@ namespace Revit.Elements
         }
 
         #endregion
-        
+
         #region Properties
 
         /// <summary>
@@ -314,7 +315,7 @@ namespace Revit.Elements
         internal static Revision FromExisting(Autodesk.Revit.DB.Revision instance, bool isRevitOwned)
         {
             return new Revision(instance)
-            { 
+            {
                 IsRevitOwned = isRevitOwned
             };
         }

@@ -107,8 +107,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
-
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -191,7 +190,7 @@ namespace Revit.Elements
             {
                 throw new ArgumentNullException("plane");
             }
-            
+
             return new SketchPlane(plane.ToPlane());
         }
 

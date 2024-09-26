@@ -48,7 +48,7 @@ namespace Revit.Elements
         {
             SafeInit(() => InitFloor(floor), true);
         }
-      
+
         /// <summary>
         /// Private constructor
         /// </summary>
@@ -75,12 +75,12 @@ namespace Revit.Elements
         private void InitFloor(List<CurveLoop> profiles, Autodesk.Revit.DB.FloorType floorType, Autodesk.Revit.DB.Level level, double offset = 0)
         {
             TransactionManager.Instance.EnsureInTransaction(Document);
-            
+
             // we assume the floor is not structural here, this may be a bad assumption
             Autodesk.Revit.DB.Floor floor = Autodesk.Revit.DB.Floor.Create(Document, profiles, floorType.Id, level.Id);
             var param = floor.get_Parameter(BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM);
-            
-            if(param !=null && Math.Abs(offset - 0) > Tolerance)
+
+            if (param != null && Math.Abs(offset - 0) > Tolerance)
             {
                 InternalUtilities.ElementUtils.SetParameterValue(param, offset);
             }
@@ -88,7 +88,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalFloor);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -149,7 +149,7 @@ namespace Revit.Elements
                 throw new ArgumentNullException("floorType");
             }
 
-            if ( level == null )
+            if (level == null)
             {
                 throw new ArgumentNullException("level");
             }
@@ -187,7 +187,7 @@ namespace Revit.Elements
         /// </summary>
         public IEnumerable<Pt> Points
         {
-            get 
+            get
             {
                 if (this.InternalFloor.GetSlabShapeEditor() == null)
                 {
@@ -198,7 +198,7 @@ namespace Revit.Elements
                 this.InternalFloor.GetSlabShapeEditor().Enable();
                 TransactionManager.Instance.TransactionTaskDone();
 
-                List<Pt> points = new List<Pt>();              
+                List<Pt> points = new List<Pt>();
                 foreach (SlabShapeVertex v in this.InternalFloor.GetSlabShapeEditor().SlabShapeVertices)
                 {
                     points.Add(v.Position.ToPoint());

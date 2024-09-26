@@ -101,7 +101,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -121,7 +121,7 @@ namespace Revit.Elements
                 throw new Exception(Properties.Resources.CurveNeedsTwoPoints);
             }
 
-            return new CurveByPoints(points.Select(x=>x.InternalReferencePoint), isReferenceLine);
+            return new CurveByPoints(points.Select(x => x.InternalReferencePoint), isReferenceLine);
         }
 
 

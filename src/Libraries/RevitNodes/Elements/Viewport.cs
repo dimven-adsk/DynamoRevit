@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Autodesk.DesignScript.Geometry;
 using Autodesk.Revit.DB;
 using Revit.Elements.Views;
@@ -96,7 +93,7 @@ namespace Revit.Elements
                 if (!Autodesk.Revit.DB.Viewport.CanAddViewToSheet(Document, sheetId, viewId))
                 {
                     viewportElement.SetBoxCenter(viewLocation);
-                }                    
+                }
                 else
                 {
                     viewportElement = Autodesk.Revit.DB.Viewport.Create(Document, sheetId, viewId, viewLocation);
@@ -107,7 +104,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, this.InternalElement);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -148,7 +145,7 @@ namespace Revit.Elements
             get
             {
                 var view = (Autodesk.Revit.DB.View)Document.GetElement(InternalViewport.ViewId);
-                return (Revit.Elements.Views.View) ElementWrapper.ToDSType(view, true);
+                return (Revit.Elements.Views.View)ElementWrapper.ToDSType(view, true);
             }
         }
 
@@ -265,7 +262,7 @@ namespace Revit.Elements
             {
                 throw new ArgumentNullException("sheet");
             }
-            if (view == null) 
+            if (view == null)
             {
                 throw new ArgumentNullException("view");
             }

@@ -5,9 +5,9 @@ using Autodesk.DesignScript.Geometry;
 using Autodesk.Revit.DB;
 using DynamoServices;
 using Nuclex.Game.Packing;
+using Revit.GeometryConversion;
 using RevitServices.Persistence;
 using RevitServices.Transactions;
-using Revit.GeometryConversion;
 
 namespace Revit.Elements.Views
 {
@@ -39,7 +39,7 @@ namespace Revit.Elements.Views
 
         public override void Dispose()
         {
-            if (DuplicateViews != null) 
+            if (DuplicateViews != null)
             {
                 if (this.DuplicateViews.Any())
                 {
@@ -47,7 +47,7 @@ namespace Revit.Elements.Views
                         view.Dispose();
                 }
             }
-            
+
             DuplicateViews = null;
             base.Dispose();
         }
@@ -91,7 +91,7 @@ namespace Revit.Elements.Views
 
         private Sheet(string sheetName, string sheetNumber, Autodesk.Revit.DB.FamilySymbol titleBlockFamilySymbol, IEnumerable<Autodesk.Revit.DB.View> views, IEnumerable<XYZ> locations)
         {
-            SafeInit(() => InitSheet(sheetName,sheetNumber,titleBlockFamilySymbol,views,locations));
+            SafeInit(() => InitSheet(sheetName, sheetNumber, titleBlockFamilySymbol, views, locations));
         }
 
         #endregion
@@ -139,7 +139,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -181,8 +181,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
-
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -220,7 +219,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -685,7 +684,7 @@ namespace Revit.Elements.Views
                 throw new ArgumentException(Properties.Resources.Sheet_ViewLocationMismatch);
             }
 
-            return new Sheet(sheetName, sheetNumber, titleBlockFamilyType.InternalFamilySymbol, views.Select(x => x.InternalView), locations.Select(x =>x.ToXyz()));
+            return new Sheet(sheetName, sheetNumber, titleBlockFamilyType.InternalFamilySymbol, views.Select(x => x.InternalView), locations.Select(x => x.ToXyz()));
         }
 
         /// <summary>
@@ -705,7 +704,7 @@ namespace Revit.Elements.Views
                 throw new ArgumentNullException("view");
             }
 
-            if (location == null) 
+            if (location == null)
             {
                 throw new ArgumentNullException("location");
             }
@@ -724,7 +723,7 @@ namespace Revit.Elements.Views
         /// <param name="suffix">When prefix and suffix are both empty, suffix will set a default value - " - Copy".</param>
         /// <returns></returns>
         public static Sheet DuplicateSheet(Sheet sheet, bool duplicateWithContents = false, bool duplicateWithView = false, string viewDuplicateOption = "Duplicate", string prefix = "", string suffix = "")
-        {            
+        {
             if (sheet == null)
                 throw new ArgumentNullException(nameof(sheet));
 
@@ -739,7 +738,7 @@ namespace Revit.Elements.Views
 
             try
             {
-                RevitServices.Transactions.TransactionManager.Instance.EnsureInTransaction(Application.Document.Current.InternalDocument);                
+                RevitServices.Transactions.TransactionManager.Instance.EnsureInTransaction(Application.Document.Current.InternalDocument);
 
                 var oldElements = ElementBinder.GetElementsFromTrace<Autodesk.Revit.DB.Element>(Document);
                 List<ElementId> elementIds = new List<ElementId>();
@@ -752,17 +751,17 @@ namespace Revit.Elements.Views
                     foreach (var element in oldElements)
                     {
                         elementIds.Add(element.Id);
-                        if(element is ViewSheet)
+                        if (element is ViewSheet)
                         {
                             var oldSheet = (element as ViewSheet).ToDSType(false) as Sheet;
                             if (oldSheet.SheetNumber.Equals(newSheetNumber))
                             {
-                                if ((duplicateWithView && oldElements.Count() > 1) || (!duplicateWithView && oldElements.Count() == 1))  
+                                if ((duplicateWithView && oldElements.Count() > 1) || (!duplicateWithView && oldElements.Count() == 1))
                                 {
                                     newSheet = oldSheet;
                                     TraceElements.AddRange(oldElements);
                                 }
-                                if(newSheet != null)
+                                if (newSheet != null)
                                 {
                                     if (duplicateWithContents)
                                         DuplicateSheetAnnotations(sheet, newSheet);
@@ -773,7 +772,7 @@ namespace Revit.Elements.Views
                             }
                         }
                     }
-                    if(newSheet == null)
+                    if (newSheet == null)
                     {
                         Autodesk.Revit.UI.UIDocument uIDocument = new Autodesk.Revit.UI.UIDocument(Document);
                         var openedViews = uIDocument.GetOpenUIViews().ToList();
@@ -789,7 +788,7 @@ namespace Revit.Elements.Views
                             }
                         }
                         Document.Delete(elementIds);
-                    }                    
+                    }
                 }
 
                 if (newSheet == null && TraceElements.Count == 0)
@@ -813,9 +812,9 @@ namespace Revit.Elements.Views
                     TraceElements.Add(newSheet.InternalElement);
 
                     // Copy Annotation Elements from sheet to new sheet by ElementTransformUtils.CopyElements
-                    if(duplicateWithContents)
+                    if (duplicateWithContents)
                         DuplicateSheetAnnotations(sheet, newSheet);
-                    
+
                     if (duplicateWithView)
                     {
                         // Copy ScheduleSheetInstance except RevisionSchedule from sheet to new sheet by ElementTransformUtils.CopyElements
@@ -824,21 +823,21 @@ namespace Revit.Elements.Views
                         // Duplicate Viewport in sheet and place on new sheet
                         TraceElements.AddRange(DuplicateViewport(sheet, newSheet, Option, prefix, suffix));
                     }
-                        
-                }                
-                                
+
+                }
+
                 ElementBinder.SetElementsForTrace(TraceElements);
                 RevitServices.Transactions.TransactionManager.Instance.TransactionTaskDone();
             }
             catch (Exception e)
             {
-                if(newSheet != null)
+                if (newSheet != null)
                 {
                     newSheet.Dispose();
                 }
                 throw e;
             }
-            
+
             return newSheet;
         }
 
@@ -873,7 +872,7 @@ namespace Revit.Elements.Views
                 BuiltInParameter.SHEET_CHECKED_BY,
                 BuiltInParameter.SHEET_DRAWN_BY
             };
-            foreach(var parameter in Filters)
+            foreach (var parameter in Filters)
             {
                 var oldParam = oldSheet.InternalViewSheet.get_Parameter(parameter);
                 var value = oldParam.AsString();
@@ -894,12 +893,12 @@ namespace Revit.Elements.Views
             };
             List<ElementId> list = new List<ElementId>();
             List<ElementId> currentList = new List<ElementId>();
-            foreach(var category in Filters)
+            foreach (var category in Filters)
             {
                 list.AddRange(new FilteredElementCollector(Document, oldSheet.InternalElementId).OfCategory(category).ToElementIds());
                 currentList.AddRange(new FilteredElementCollector(Document, newSheet.InternalElementId).OfCategory(category).ToElementIds());
             }
-            if(list.Any<ElementId>())
+            if (list.Any<ElementId>())
             {
                 if (currentList.Any<ElementId>() && currentList.Count == list.Count)
                     return;
@@ -924,9 +923,9 @@ namespace Revit.Elements.Views
             {
                 list.AddRange(new FilteredElementCollector(Document, sheet.InternalElementId).OfCategory(category).ToElementIds());
             }
-            if(list.Any<ElementId>())
+            if (list.Any<ElementId>())
             {
-                foreach(var id in list)
+                foreach (var id in list)
                 {
                     Document.Delete(id);
                 }
@@ -936,16 +935,16 @@ namespace Revit.Elements.Views
         private static void DuplicateScheduleSheetInstance(Sheet oldSheet, Sheet newSheet)
         {
             List<ElementId> list = new List<ElementId>();
-            foreach(var schedule in oldSheet.Schedules)
+            foreach (var schedule in oldSheet.Schedules)
             {
-                if(!schedule.InternalScheduleOnSheet.IsTitleblockRevisionSchedule)
+                if (!schedule.InternalScheduleOnSheet.IsTitleblockRevisionSchedule)
                 {
                     list.Add(schedule.InternalElement.Id);
                 }
             }
             if (list.Any<ElementId>())
             {
-                ElementTransformUtils.CopyElements(oldSheet.InternalViewSheet, list, newSheet.InternalViewSheet, null, null);                
+                ElementTransformUtils.CopyElements(oldSheet.InternalViewSheet, list, newSheet.InternalViewSheet, null, null);
             }
         }
 
@@ -960,8 +959,8 @@ namespace Revit.Elements.Views
             List<Revit.Elements.Views.View> viewList = new List<View>();
             List<Autodesk.Revit.DB.Element> elements = new List<Autodesk.Revit.DB.Element>();
             List<Autodesk.DesignScript.Geometry.Point> locationList = new List<Autodesk.DesignScript.Geometry.Point>();
-            foreach (var viewport in Viewports) 
-            {                
+            foreach (var viewport in Viewports)
+            {
                 if (viewport.View.InternalView.CanViewBeDuplicated(viewDuplicateOption))
                 {
                     var newViewName = prefix + viewport.View.Name + suffix;
@@ -1012,7 +1011,7 @@ namespace Revit.Elements.Views
                 .ToList();
             foreach (var s in sheets)
             {
-                if((s as ViewSheet).SheetNumber.Equals(SheetNumber))
+                if ((s as ViewSheet).SheetNumber.Equals(SheetNumber))
                 {
                     IsUnique = false;
                     break;

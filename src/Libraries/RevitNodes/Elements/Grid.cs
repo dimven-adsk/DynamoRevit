@@ -92,7 +92,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, this.InternalElement);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -109,7 +109,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, this.InternalElement);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -177,7 +177,7 @@ namespace Revit.Elements
                 throw new ArgumentNullException("line");
             }
 
-            return new Grid( (Autodesk.Revit.DB.Line) line.ToRevitType());
+            return new Grid((Autodesk.Revit.DB.Line)line.ToRevitType());
         }
 
         /// <summary>
@@ -225,7 +225,7 @@ namespace Revit.Elements
                 throw new ArgumentNullException("arc");
             }
 
-            return new Grid( (Autodesk.Revit.DB.Arc) arc.ToRevitType() );
+            return new Grid((Autodesk.Revit.DB.Arc)arc.ToRevitType());
         }
 
         #endregion

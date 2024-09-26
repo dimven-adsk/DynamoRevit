@@ -31,8 +31,8 @@ namespace Revit.Elements
         /// <summary>
         /// Internal constructor - creates a single StructuralFraming instance
         /// </summary>
-        internal StructuralFraming(Autodesk.Revit.DB.Curve curve, Autodesk.Revit.DB.XYZ upVector, 
-            Autodesk.Revit.DB.Level level, Autodesk.Revit.DB.Structure.StructuralType structuralType, 
+        internal StructuralFraming(Autodesk.Revit.DB.Curve curve, Autodesk.Revit.DB.XYZ upVector,
+            Autodesk.Revit.DB.Level level, Autodesk.Revit.DB.Structure.StructuralType structuralType,
             Autodesk.Revit.DB.FamilySymbol symbol)
         {
             SafeInit(() => InitStructuralFraming(curve, upVector, level, structuralType, symbol));
@@ -46,7 +46,7 @@ namespace Revit.Elements
         {
             SafeInit(() => InitStructuralFraming(curve, level, structuralType, symbol));
         }
-        
+
         #endregion
 
         #region Helpers for private constructors
@@ -112,7 +112,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -173,7 +173,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -262,7 +262,7 @@ namespace Revit.Elements
         /// </search>
         [Obsolete("Use Element.ElementType instead.")]
         public new FamilyType Type
-        {    
+        {
             // NOTE: Because AbstractFamilyInstance is not visible in the library
             //       we redefine this method on FamilyInstance
             get { return base.Type; }
@@ -294,7 +294,7 @@ namespace Revit.Elements
         /// <param name="structuralFramingType">The structural framing type representing the structural type</param>
         /// <returns></returns>
         [Obsolete("Use StructuralFraming.BeamByCurve, StructuralFraming.BraceByCurve, or StructuralFraming.ColumnByCurve instead.")]
-        public static StructuralFraming ByCurveLevelUpVectorAndType(Autodesk.DesignScript.Geometry.Curve curve, Level level, 
+        public static StructuralFraming ByCurveLevelUpVectorAndType(Autodesk.DesignScript.Geometry.Curve curve, Level level,
             Autodesk.DesignScript.Geometry.Vector upVector, StructuralType structuralType, FamilyType structuralFramingType)
         {
             if (curve == null)
@@ -315,7 +315,7 @@ namespace Revit.Elements
             if (structuralFramingType == null)
             {
                 throw new ArgumentNullException("structuralFramingType");
-            }            
+            }
 
             return new StructuralFraming(curve.ToRevitType(), upVector.ToXyz(), level.InternalLevel,
                 structuralType.ToRevitType(), structuralFramingType.InternalFamilySymbol);

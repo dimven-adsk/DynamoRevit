@@ -46,7 +46,7 @@ namespace Revit.Elements
         {
             SafeInit(() => InitRoof(roof), true);
         }
-      
+
         /// <summary>
         /// Private constructor
         /// </summary>
@@ -93,7 +93,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalRoof);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -119,7 +119,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalRoof);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -159,12 +159,13 @@ namespace Revit.Elements
             }
 
             var ca = new CurveArray();
-            polycurve.Curves().ForEach(x => {
+            polycurve.Curves().ForEach(x =>
+            {
                 ca.Append(x.ToRevitType());
                 x.Dispose();
-                });
-            
-            var roof = new Roof(ca, level.InternalLevel,roofType.InternalRoofType);
+            });
+
+            var roof = new Roof(ca, level.InternalLevel, roofType.InternalRoofType);
             DocumentManager.Regenerate();
             return roof;
         }
@@ -188,10 +189,11 @@ namespace Revit.Elements
             }
 
             var ca = new CurveArray();
-            outline.Curves().ForEach(x => {
+            outline.Curves().ForEach(x =>
+            {
                 ca.Append(x.ToRevitType());
                 x.Dispose();
-                });
+            });
 
             var roof = new Roof(ca, plane.InternalReferencePlane, level.InternalLevel, roofType.InternalRoofType, extrusionStart, extrusionEnd);
             DocumentManager.Regenerate();
@@ -208,7 +210,7 @@ namespace Revit.Elements
         /// </summary>
         public IEnumerable<Pt> Points
         {
-            get 
+            get
             {
                 if (this.InternalRoof.GetSlabShapeEditor() == null)
                 {

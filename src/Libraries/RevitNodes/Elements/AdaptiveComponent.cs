@@ -113,8 +113,7 @@ namespace Revit.Elements
             }
 
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.SetElementForTrace(InternalElement);
-
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -161,7 +160,7 @@ namespace Revit.Elements
             }
 
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.SetElementForTrace(InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -181,7 +180,7 @@ namespace Revit.Elements
                 throw new Exception(Properties.Resources.InputPointParamsMismatch);
 
             int count = placePointIds.Count;
-            for (int i = 0; i < count; i++ )
+            for (int i = 0; i < count; i++)
             {
                 var point = (Autodesk.Revit.DB.ReferencePoint)Document.GetElement(placePointIds[i]);
                 point.Position = pnts[i];
@@ -592,7 +591,7 @@ namespace Revit.Elements
 
                 ElementBinder.SetElementsForTrace(instances);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 // Unregister the elements from the element life cycle manager and delete the elements
                 var elementManager = ElementIDLifecycleManager<long>.GetInstance();
@@ -623,7 +622,7 @@ namespace Revit.Elements
         }
 
         #endregion
-        
+
         #region Internal static constructor
 
         /// <summary>
