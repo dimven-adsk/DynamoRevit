@@ -139,7 +139,7 @@ namespace Dynamo.Applications
                 SubscribeAssemblyEvents();
                 SubscribeApplicationEvents();
 
-                TransactionManager.SetupManager(new AutomaticTransactionStrategy());
+                TransactionManager.SetupManager(new AutomaticGroupingTransactionStrategy());
                 ElementBinder.IsEnabled = true;
 
                 var dynamoCmdId = RevitCommandId.LookupCommandId("ID_VISUAL_PROGRAMMING_DYNAMO");

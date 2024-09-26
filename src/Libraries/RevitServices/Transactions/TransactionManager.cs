@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using Autodesk.Revit.DB;
 
 namespace RevitServices.Transactions
@@ -235,6 +236,75 @@ namespace RevitServices.Transactions
             TransactionManager.Log("ForceCloseTransaction - AUTO START: Ending Transaction");
             if (handle != null && handle.Status == TransactionStatus.Started)
                 handle.CommitTransaction();
+        }
+    }
+
+    public class AutomaticGroupingTransactionStrategy : ITransactionStrategy
+    {
+        const int MAX_TRANSACTION_TASKS = 25;
+
+        private TransactionGroup _group;
+        private TransactionWrapper _wrapper;
+        private Document _document;
+        private int _count = 0;
+
+        public TransactionHandle EnsureInTransaction(TransactionWrapper wrapper, Document document)
+        {
+            if (_group == null)
+            {
+                _document = document;
+                _count = 0;
+                _group = new TransactionGroup(_document, "DYNAMO AUTO GROUPING TRANSACTION");
+                _group.Start();
+                _wrapper = wrapper;
+            }
+            else if (!Equals(_document, document))
+            {
+                Debug.WriteLine("New document given, the TransactionGroup should probably be assimilated then?");
+            }
+
+            TransactionManager.Log("EnsureInTransaction - AUTO START: Starting new Transaction");
+            return !wrapper.TransactionActive ? wrapper.StartTransaction(document) : wrapper.Handle;
+        }
+
+        public void ForceCloseTransaction(TransactionHandle handle)
+        {
+            if (ForceCloseInternal(handle) && _group.HasStarted())
+            {
+                TransactionManager.Log("ForceCloseTransaction - AUTO START: Assimilating TransactionGroup");
+                try
+                {
+                    _group.Assimilate();
+                }
+                finally
+                {
+                    _group.Dispose();
+                }
+                _count = 0;
+                _group = null;
+            }
+        }
+
+        private bool ForceCloseInternal(TransactionHandle handle)
+        {
+            TransactionManager.Log("ForceCloseTransaction - AUTO START: Ending Transaction");
+
+            if (handle != null && handle.Status == TransactionStatus.Started)
+            {
+                handle.CommitTransaction();
+                return true;
+            }
+            return false;
+        }
+
+        public void TransactionTaskDone(TransactionHandle handle)
+        {
+            _count++;
+            if (_count > 500)
+            {
+                ForceCloseInternal(handle);
+                _count = 0;
+            }
         }
     }
 
