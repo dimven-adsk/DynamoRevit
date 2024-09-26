@@ -1,19 +1,229 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.IO;
 using System.Linq;
+using System.Numerics;
+using System.Text;
 using Autodesk.Revit.DB;
 using Dynamo.Engine;
 using Dynamo.Graph.Nodes;
 using Dynamo.Graph.Nodes.ZeroTouch;
 using Dynamo.Graph.Workspaces;
 using DynamoServices;
+using Newtonsoft.Json;
 using ProtoCore;
 using RevitServices.Elements;
-using Microsoft.CSharp;
-using Newtonsoft.Json;
 
 namespace RevitServices.Persistence
 {
+    internal class DeSer
+    {
+        static DeSer _instance = new DeSer();
+        public static DeSer Instance => _instance;
+
+        //StringBuilder _serializeIdBuilder = new StringBuilder(128);
+
+        void WriteProperty<T>(JsonWriter w, string propName, T value)
+        {
+            w.WritePropertyName(propName);
+            w.WriteValue(value);
+        }
+
+        void WritePropertyList<T>(JsonWriter w, string propName, List<T> values)
+        {
+            w.WritePropertyName(propName);
+            w.WriteStartArray();
+            foreach (var item in values)
+                w.WriteValue(item);
+            w.WriteEndArray();
+        }
+
+        internal string SerializeSingle(SerializableId id)
+        {
+            // { "StringId": "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAAABBBBBBBB", "IntId": 1234567890 }
+            //_serializeIdBuilder.Clear();
+            var builder = new StringBuilder(128);
+            using var tw = new StringWriter(builder);
+            using var jw = new JsonTextWriter(tw);
+
+            jw.WriteStartObject();
+            WriteProperty(jw, nameof(SerializableId.StringID), id.StringID);
+            WriteProperty(jw, nameof(SerializableId.IntID), id.IntID);
+            //jw.WritePropertyName(nameof(SerializableId.StringID));
+            //jw.WriteValue(id.StringID);
+            //jw.WritePropertyName(nameof(SerializableId.IntID));
+            //jw.WriteValue(id.IntID);
+            jw.WriteEndObject();
+            return builder.ToString();
+        }
+
+        internal string SerializeMulti(MultipleSerializableId ids)
+        {
+            var builder = new StringBuilder(ids.StringIDs.Count * 128);
+            using var tw = new StringWriter(builder);
+            using var jw = new JsonTextWriter(tw);
+
+            jw.WriteStartObject();
+            WritePropertyList(jw, nameof(MultipleSerializableId.StringIDs), ids.StringIDs);
+            WritePropertyList(jw, nameof(MultipleSerializableId.IntIDs), ids.IntIDs);
+            //jw.WritePropertyName(nameof(MultipleSerializableId.IntIDs));
+            //jw.WriteStartArray();
+            //foreach (var item in ids.IntIDs)
+            //    jw.WriteValue(item);
+            //jw.WriteEndArray();
+            //jw.WritePropertyName(nameof(MultipleSerializableId.StringIDs));
+            //jw.WriteStartArray();
+            //foreach (var item in ids.StringIDs)
+            //    jw.WriteValue(item);
+            //jw.WriteEndArray();
+            jw.WriteEndObject();
+            return builder.ToString();
+        }
+
+        public static long? ReadAsLong(JsonReader reader)
+        {
+            if (reader.Read() && BigInteger.TryParse(reader.Value.ToString(), out BigInteger bigInt))
+            {
+                if (long.MinValue <= bigInt && bigInt <= long.MaxValue)
+                    return (long)bigInt;
+            }
+
+            return null;
+        }
+
+        internal bool TryDeserializeSingle(string s, out SerializableId id)
+        {
+            id = null;
+            if (string.IsNullOrWhiteSpace(s))
+                return false;
+
+            using var sr = new StringReader(s);
+            using var jr = new JsonTextReader(sr);
+
+            var state = DeserState.None;
+            
+            while (jr.Read())
+            {
+                switch (jr.TokenType)
+                {
+                    case JsonToken.StartObject when state == DeserState.None:
+                        id = new SerializableId();
+                        state = DeserState.InObject;
+                        break;
+                    case JsonToken.PropertyName when state.HasFlag(DeserState.InObject):
+                        var propName = jr.Value.ToString();
+                        if (propName == nameof(SerializableId.StringID) && jr.ReadAsString() is string stringId)
+                        {
+                            id.StringID = stringId;
+                            state |= DeserState.PropString;
+                            break;
+                        }
+                        else if (propName == nameof(SerializableId.IntID) && ReadAsLong(jr) is long intId)
+                        {
+
+                            id.IntID = intId;
+                            state |= DeserState.PropInt;
+                            break;
+                        }
+                        return false;
+                    case JsonToken.EndObject when state.HasFlag(DeserState.Both):
+                        return true;
+                    default:
+                        break;
+                }
+            }
+            return false;
+        }
+
+        [Flags]
+        enum DeserState
+        {
+            None = 0x00,
+            InObject = 0x01,
+            PropString = 0x02,
+            PropInt = 0x04,
+            Both = PropString | PropInt
+        }
+
+        bool FillList<T>(JsonReader reader, List<T> list, JsonToken tokenType, Func<JsonReader, T> read) 
+        {
+            if (reader.Read() && reader.TokenType != JsonToken.StartArray)
+                return false;
+
+            while(reader.Read() && reader.TokenType == tokenType)
+                list.Add(read(reader));
+
+            return reader.TokenType == JsonToken.EndArray;
+        }
+
+        bool FillLongList(JsonReader reader, List<long> list) => 
+            FillList(reader, list, JsonToken.Integer, r => (long)r.ReadAsDouble());
+
+        bool FillStringList(JsonReader reader, List<string> list) =>
+            FillList(reader, list, JsonToken.String, r => r.ReadAsString());
+
+        internal bool TryDeserializeMulti(string s, out MultipleSerializableId id)
+        {
+            id = null;
+            if (string.IsNullOrWhiteSpace(s))
+                return false;
+
+            using var sr = new StringReader(s);
+            using var jr = new JsonTextReader(sr);
+
+            try
+            {
+                var state = DeserState.None;
+                while (jr.Read())
+                {
+                    switch (jr.TokenType)
+                    {
+                        case JsonToken.StartObject when state.HasFlag(DeserState.None):
+                            id = new MultipleSerializableId();
+                            state = DeserState.InObject;
+                            break;
+                        case JsonToken.PropertyName when state.HasFlag(DeserState.InObject):
+                            var propName = jr.Value.ToString();
+                            if (propName == nameof(MultipleSerializableId.StringIDs) && FillStringList(jr, id.StringIDs))
+                            {
+                                state |= DeserState.PropString;
+                                break;
+                            }
+                            else if (propName == nameof(MultipleSerializableId.IntIDs) && FillLongList(jr, id.IntIDs))
+                            {
+                                state |= DeserState.PropInt;
+                                break;
+                            }
+                            return false;
+                        case JsonToken.EndObject when state.HasFlag(DeserState.Both):
+                            return true;
+                        default:
+                            break;
+                    }
+                }
+            }
+            catch { } // malformed json?
+            return false;
+        }
+
+        public static bool TryDeserialize<T>(string json, out T deserialized)
+        {
+            deserialized = default;
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                try
+                {
+                    deserialized = JsonConvert.DeserializeObject<T>(json);
+                    return deserialized != null;
+                }
+                catch
+                { }
+            }
+            return false;
+        }
+    }
+
     /// <summary>
     /// Holds a  representation of a Revit ID that supports serialisation
     /// </summary>
@@ -37,6 +247,18 @@ namespace RevitServices.Persistence
         public override int GetHashCode()
         {
             return (StringID == null ? 0 : StringID.GetHashCode()) ^ (IntID.GetHashCode());
+        }
+
+        public static bool TryDeserialize(string json, out SerializableId id)
+        {
+            return DeSer.Instance.TryDeserializeSingle(json, out id);
+            //return DeSer.TryDeserialize(json, out id);
+        }
+
+        public string Serialize()
+        {
+            return DeSer.Instance.SerializeSingle(this);
+            //return JsonConvert.SerializeObject(this);
         }
     }
 
@@ -108,6 +330,17 @@ namespace RevitServices.Persistence
             return !this.StringIDs.Except(other.StringIDs).Any();
         }
 
+        public static bool TryDeserialize(string json, out MultipleSerializableId id)
+        {
+            return DeSer.Instance.TryDeserializeMulti(json, out id);
+            //return DeSer.TryDeserialize(json, out id);
+        }
+
+        public string Serialize()
+        {
+            return DeSer.Instance.SerializeMulti(this);
+            //return JsonConvert.SerializeObject(this);
+        }
     }
         /// <summary>
         /// Class for handling unique ids in a typesafe ammner
@@ -148,25 +381,11 @@ namespace RevitServices.Persistence
         {
             //Get the element ID that was cached in the callsite
             string traceString = TraceUtils.GetTraceData(REVIT_TRACE_ID);
-
-            if (String.IsNullOrEmpty(traceString))
-                return null;
-
-            SerializableId id = null;
-            try
+            if (SerializableId.TryDeserialize(traceString, out var sid))
             {
-                id = JsonConvert.DeserializeObject<SerializableId>(traceString);
+                return new Autodesk.Revit.DB.ElementId(sid.IntID);
             }
-            catch
-            {
-                //do nothing 
-            }
-
-            if (id == null)
-                return null; //There was no usable data in the trace cache
-
-            var traceDataInt = id.IntID;
-            return new Autodesk.Revit.DB.ElementId(traceDataInt);
+            return null; //There was no usable data in the trace cache
         }
 
         /// <summary>
@@ -178,25 +397,11 @@ namespace RevitServices.Persistence
         {
             //Get the element ID that was cached in the callsite
             string traceString = TraceUtils.GetTraceData(REVIT_TRACE_ID);
-
-            if(String.IsNullOrEmpty(traceString))
-                return null;
-
-            SerializableId id = null;
-            try
+            if (SerializableId.TryDeserialize(traceString, out var sid))
             {
-                id =  JsonConvert.DeserializeObject<SerializableId>(traceString);
+                return new ElementUUID(sid.StringID);
             }
-            catch
-            {
-                //do nothing 
-            }
-            
-            if (id == null)
             return null; //There was no usable data in the trace cache
-
-            var traceDataUuid = id.StringID;
-            return new ElementUUID(traceDataUuid);
         }
 
         /// <summary>
@@ -209,51 +414,15 @@ namespace RevitServices.Persistence
             //Get the element ID that was cached in the callsite
             string traceString = TraceUtils.GetTraceData(REVIT_TRACE_ID);
 
-            if (String.IsNullOrEmpty(traceString))
-                return null;
-
-            MultipleSerializableId multi = null;
-            try
+            if (MultipleSerializableId.TryDeserialize(traceString, out var mId))
             {
-                multi = JsonConvert.DeserializeObject<MultipleSerializableId>(traceString);
+                return mId.StringIDs.Select(id => new ElementUUID(id)).ToList();
             }
-            catch
+            else if (SerializableId.TryDeserialize(traceString, out var sId))
             {
-                //do nothing 
+                return new List<ElementUUID> { new ElementUUID(sId.StringID) };
             }
-
-            if (multi != null)
-            {
-                List<ElementUUID> uuids = new List<ElementUUID>();
-                foreach (var uuid in multi.StringIDs)
-                    uuids.Add(new ElementUUID(uuid));
-
-                return uuids;
-            }
-
-            SerializableId single = null;
-            try
-            {
-                single = JsonConvert.DeserializeObject<SerializableId>(traceString);
-            }
-            catch
-            {
-                //do nothing 
-            }
-
-            if (single != null)
-            {
-                var traceDataUuid = single.StringID;
-                List<ElementUUID> uuids = new List<ElementUUID>()
-                    {
-                        new ElementUUID(traceDataUuid)
-                    };
-                return uuids;
-            }
-
-            //No usable data was found
-            return null;
-
+            return null; //There was no usable data in the trace cache
         }
 
 
@@ -279,7 +448,19 @@ namespace RevitServices.Persistence
         /// <param name="element">The element to store in trace</param>
         public static void SetElementForTrace(Element element)
         {
-            SetElementForTrace(element.Id, new ElementUUID(element.UniqueId));
+            if (!IsEnabled) return;
+
+            var id = new SerializableId
+            {
+                IntID = element.Id.Value,
+                StringID = element.UniqueId
+            };
+
+            // if we're mutating the current Element id, that means we need to 
+            // clean up the old object
+
+            // Set the element ID cached in the callsite
+            TraceUtils.SetTraceData(REVIT_TRACE_ID, id.Serialize());
         }
 
         /// <summary>
@@ -292,9 +473,7 @@ namespace RevitServices.Persistence
 
             MultipleSerializableId ids = new MultipleSerializableId(elements);
 
-            var serializedTraceData = JsonConvert.SerializeObject(ids);
-
-            TraceUtils.SetTraceData(REVIT_TRACE_ID, serializedTraceData);
+            TraceUtils.SetTraceData(REVIT_TRACE_ID, ids.Serialize());
 
         }
 
@@ -308,16 +487,17 @@ namespace RevitServices.Persistence
         {
             if (!IsEnabled) return;
 
-            SerializableId id = new SerializableId();
-            id.IntID = elementId.Value;
-            id.StringID = elementUUID.UUID;
+            var id = new SerializableId
+            {
+                IntID = elementId.Value,
+                StringID = elementUUID.UUID
+            };
 
             // if we're mutating the current Element id, that means we need to 
             // clean up the old object
 
-            var serializedTraceData = JsonConvert.SerializeObject(id);
             // Set the element ID cached in the callsite
-            TraceUtils.SetTraceData(REVIT_TRACE_ID, serializedTraceData);
+            TraceUtils.SetTraceData(REVIT_TRACE_ID, id.Serialize());
         }
 
         /// <summary>
@@ -336,7 +516,7 @@ namespace RevitServices.Persistence
 
             T ret;
 
-            if (Elements.ElementUtils.TryGetElement(document, elementUUID.UUID, out ret))
+            if (document.TryGetElement(elementUUID.UUID, out ret))
                 return ret;
             else
                 return null;
@@ -364,7 +544,7 @@ namespace RevitServices.Persistence
             foreach (var uuid in uuids)
             {
                 T ret;
-                if (Elements.ElementUtils.TryGetElement(document, uuid.UUID, out ret))
+                if (document.TryGetElement(uuid.UUID, out ret))
                 {
                     elements.Add(ret);
                 }
@@ -426,32 +606,14 @@ namespace RevitServices.Persistence
             where TId: SerializableId
         {
             var traceString = ElementBinder.GetRawDataFromTrace();
-            if (String.IsNullOrEmpty(traceString))
-                return null;
 
-            TId tid = null;
-            try
+            if (DeSer.TryDeserialize(traceString, out TId tid))
             {
-                tid = JsonConvert.DeserializeObject<TId>(traceString);
+                if (document.TryGetElement(tid.StringID, out TElement element))
+                    return new Tuple<TElement, TId>(element, tid);
             }
-            catch
-            {
-                //do nothing 
-            }
-
-            if (tid == null)
-                return null;
-
-            var elementId = tid.IntID;
-            var uuid = tid.StringID;
-
-            var element = default(TElement);
-            
             // if we can't get the element, return null
-            if (!document.TryGetElement(uuid,out element))
-                return null;
-
-            return new Tuple<TElement, TId>(element, tid);
+            return null;
         }
         /// <summary>
         /// This function gets the nodes which are binding with the elements which have the
@@ -464,32 +626,24 @@ namespace RevitServices.Persistence
         public static IEnumerable<NodeModel> GetNodesFromElementIds(IEnumerable<ElementId> ids,
             WorkspaceModel workspace, EngineController engine)
         {
-            List<NodeModel> nodes = new List<NodeModel>();
-            if (!ids.Any())
-                return nodes.AsEnumerable();
+            if (engine == null || engine.LiveRunnerCore == null || engine.LiveRunnerRuntimeCore == null)
+                return Enumerable.Empty<NodeModel>();
+            var runtimeCore = engine.LiveRunnerRuntimeCore;
 
-            RuntimeCore runtimeCore = null;
-            if (engine != null && (engine.LiveRunnerCore != null))
-                runtimeCore = engine.LiveRunnerRuntimeCore;
-
-            if (runtimeCore == null)
-                return null;
+            var changedElementIds = new HashSet<long>(ids.Select(eId => eId.Value));
+            if (changedElementIds.Count == 0)
+                return Enumerable.Empty<NodeModel>();
 
             // Selecting all nodes that are either a DSFunction,
             // a DSVarArgFunction or a CodeBlockNodeModel into a list.
-            var nodeGuids = workspace.Nodes.Where((n) =>
-            {
-                return (n is DSFunction
-                        || (n is DSVarArgFunction)
-                        || (n is CodeBlockNodeModel));
-            }).Select((n) => n.GUID);
+            var nodesByGuid = workspace.Nodes.Where(n => n is DSFunction || n is DSVarArgFunction || n is CodeBlockNodeModel)
+                .ToDictionary(n => n.GUID, n => n);
 
-            var nodeTraceDataList = runtimeCore.RuntimeData.GetCallsitesForNodes(nodeGuids, runtimeCore.DSExecutable);
+            var nodeTraceDataList = runtimeCore.RuntimeData.GetCallsitesForNodes(nodesByGuid.Keys, runtimeCore.DSExecutable);
 
-            bool areElementsFoundForThisNode;
+            var nodes = new List<NodeModel>();
             foreach (Guid guid in nodeTraceDataList.Keys)
             {
-                areElementsFoundForThisNode = false;
                 foreach (CallSite cs in nodeTraceDataList[guid])
                 {
                     foreach (CallSite.SingleRunTraceData srtd in cs.TraceData)
@@ -498,50 +652,23 @@ namespace RevitServices.Persistence
 
                         foreach (string thingy in traceData)
                         {
-                            if (String.IsNullOrEmpty(thingy))
-                                continue;
-
-                            SerializableId sid = null;
-                            try
+                            if (SerializableId.TryDeserialize(thingy, out var sId) && changedElementIds.Contains(sId.IntID))
                             {
-                                sid = JsonConvert.DeserializeObject<SerializableId>(thingy);
+                                nodes.Add(nodesByGuid[guid]);
+                                goto nextNodeLabel; // break the nested loop -> go directly to the next nodeGuid
                             }
-                            catch
+                            else if (MultipleSerializableId.TryDeserialize(thingy, out var mId) && changedElementIds.Overlaps(mId.IntIDs))
                             {
-                                //do nothing 
-                            }
-
-                            if (sid != null)
-                            {
-                                foreach (var id in ids)
-                                {
-                                    if (sid.IntID == id.Value)
-                                    {
-                                        areElementsFoundForThisNode = true;
-                                        break;
-                                    }
-                                }
-
-                                if (areElementsFoundForThisNode)
-                                {
-                                    NodeModel inm =
-                                        workspace.Nodes.Where((n) => n.GUID == guid).FirstOrDefault();
-                                    nodes.Add(inm);
-                                    break;
-                                }
+                                nodes.Add(nodesByGuid[guid]);
+                                goto nextNodeLabel; // break the nested loop -> go directly to the next nodeGuid
                             }
                         }
-
-                        if (areElementsFoundForThisNode)
-                            break;
                     }
-
-                    if (areElementsFoundForThisNode)
-                        break;
                 }
+                nextNodeLabel: { } // skip unecessary callsite checks
             }
 
-            return nodes.AsEnumerable();
+            return nodes;
         }
 
         /// <summary>
@@ -552,23 +679,17 @@ namespace RevitServices.Persistence
         /// <param name="engine">The engine.</param>
         public static void SetElementFreezeState(WorkspaceModel workspace, NodeModel node, EngineController engine)
         {
-            RuntimeCore runtimeCore = null;
-            if (engine != null && (engine.LiveRunnerCore != null))
-                runtimeCore = engine.LiveRunnerRuntimeCore;
-
-            if (runtimeCore == null || node == null)
+            if (engine == null || engine.LiveRunnerCore == null || engine.LiveRunnerRuntimeCore == null)
                 return;
+            var runtimeCore = engine.LiveRunnerRuntimeCore;
 
             // Selecting all nodes that are either a DSFunction,
             // a DSVarArgFunction or a CodeBlockNodeModel into a list.
-            var nodeGuids = workspace.Nodes.Where((n) =>
-            {
-                return (n is DSFunction
-                        || (n is DSVarArgFunction)
-                        || (n is CodeBlockNodeModel));
-            }).Where((n) => n.GUID == node.GUID).Select((x) => x.GUID);
+            var nodesByGuid = workspace.Nodes.Where(n => n is DSFunction || n is DSVarArgFunction || n is CodeBlockNodeModel)
+                .Where(n => n.GUID == node.GUID)
+                .ToDictionary(n => n.GUID, n => n);
 
-            var nodeTraceDataList = runtimeCore.RuntimeData.GetCallsitesForNodes(nodeGuids, runtimeCore.DSExecutable);
+            var nodeTraceDataList = runtimeCore.RuntimeData.GetCallsitesForNodes(nodesByGuid.Keys, runtimeCore.DSExecutable);
             foreach (Guid guid in nodeTraceDataList.Keys)
             {
                 foreach (CallSite cs in nodeTraceDataList[guid])
@@ -579,38 +700,13 @@ namespace RevitServices.Persistence
 
                         foreach (string thingy in traceData)
                         {
-                            if (String.IsNullOrEmpty(thingy))
-                                continue;
-
-                            SerializableId sid = null;
-                            try
+                            if (SerializableId.TryDeserialize(thingy, out var sId))
                             {
-                                sid = JsonConvert.DeserializeObject<SerializableId>(thingy);
+                                setEachElementFreezeState(node.IsFrozen, sId.IntID);
                             }
-                            catch
+                            else if (MultipleSerializableId.TryDeserialize(thingy, out var mId))
                             {
-                                //do nothing 
-                            }
-
-                            if (sid != null)
-                            {
-                                setEachElementFreezeState(node.IsFrozen, sid.IntID);
-
-                            }
-
-                            MultipleSerializableId msid = null;
-                            try
-                            {
-                                msid = JsonConvert.DeserializeObject<MultipleSerializableId>(thingy);
-                            }
-                            catch
-                            {
-                                //do nothing 
-                            }
-
-                            if (msid != null)
-                            {
-                                msid.IntIDs.ForEach(x => setEachElementFreezeState(node.IsFrozen, x));
+                                mId.IntIDs.ForEach(id => setEachElementFreezeState(node.IsFrozen, id));
                             }
                         }
                     }
@@ -622,8 +718,7 @@ namespace RevitServices.Persistence
         {
             //Get the Autodesk.Revit.Element.
             Element el;
-            DocumentManager.Instance.CurrentDBDocument.TryGetElement(new ElementId(elementId),
-                out el);
+            DocumentManager.Instance.CurrentDBDocument.TryGetElement(new ElementId(elementId), out el);
 
             //Get the Revit Element wrapper.
             if (el != null)
