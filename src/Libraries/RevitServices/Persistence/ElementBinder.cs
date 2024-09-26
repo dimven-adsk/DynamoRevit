@@ -1,23 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.IO;
 using System.Linq;
+using System.Numerics;
+using System.Text;
 using Autodesk.Revit.DB;
 using Dynamo.Engine;
 using Dynamo.Graph.Nodes;
 using Dynamo.Graph.Nodes.ZeroTouch;
 using Dynamo.Graph.Workspaces;
 using DynamoServices;
+using Newtonsoft.Json;
 using ProtoCore;
 using RevitServices.Elements;
-using Microsoft.CSharp;
-using Newtonsoft.Json;
-using System.IO;
-using System.Text;
-using Autodesk.Revit.DB.Electrical;
-using System.Text.Json;
-using System.Numerics;
-using System.Data;
-using ProtoCore.Lang;
 
 namespace RevitServices.Persistence
 {
@@ -255,14 +251,14 @@ namespace RevitServices.Persistence
 
         public static bool TryDeserialize(string json, out SerializableId id)
         {
-            //return DeSer.Instance.TryDeserializeSingle(json, out id);
-            return DeSer.TryDeserialize(json, out id);
+            return DeSer.Instance.TryDeserializeSingle(json, out id);
+            //return DeSer.TryDeserialize(json, out id);
         }
 
         public string Serialize()
         {
-            //return DeSer.Instance.SerializeSingle(this);
-            return JsonConvert.SerializeObject(this);
+            return DeSer.Instance.SerializeSingle(this);
+            //return JsonConvert.SerializeObject(this);
         }
     }
 
@@ -336,14 +332,14 @@ namespace RevitServices.Persistence
 
         public static bool TryDeserialize(string json, out MultipleSerializableId id)
         {
-            //return DeSer.Instance.TryDeserializeMulti(json, out id);
-            return DeSer.TryDeserialize(json, out id);
+            return DeSer.Instance.TryDeserializeMulti(json, out id);
+            //return DeSer.TryDeserialize(json, out id);
         }
 
         public string Serialize()
         {
-            //return DeSer.Instance.SerializeMulti(this);
-            return JsonConvert.SerializeObject(this);
+            return DeSer.Instance.SerializeMulti(this);
+            //return JsonConvert.SerializeObject(this);
         }
     }
         /// <summary>
