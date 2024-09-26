@@ -630,32 +630,24 @@ namespace RevitServices.Persistence
         public static IEnumerable<NodeModel> GetNodesFromElementIds(IEnumerable<ElementId> ids,
             WorkspaceModel workspace, EngineController engine)
         {
-            List<NodeModel> nodes = new List<NodeModel>();
-            if (!ids.Any())
-                return nodes.AsEnumerable();
+            if (engine == null || engine.LiveRunnerCore == null || engine.LiveRunnerRuntimeCore == null)
+                return Enumerable.Empty<NodeModel>();
+            var runtimeCore = engine.LiveRunnerRuntimeCore;
 
-            RuntimeCore runtimeCore = null;
-            if (engine != null && (engine.LiveRunnerCore != null))
-                runtimeCore = engine.LiveRunnerRuntimeCore;
-
-            if (runtimeCore == null)
-                return null;
+            var changedElementIds = new HashSet<long>(ids.Select(eId => eId.Value));
+            if (changedElementIds.Count == 0)
+                return Enumerable.Empty<NodeModel>();
 
             // Selecting all nodes that are either a DSFunction,
             // a DSVarArgFunction or a CodeBlockNodeModel into a list.
-            var nodeGuids = workspace.Nodes.Where((n) =>
-            {
-                return (n is DSFunction
-                        || (n is DSVarArgFunction)
-                        || (n is CodeBlockNodeModel));
-            }).Select((n) => n.GUID);
+            var nodesByGuid = workspace.Nodes.Where(n => n is DSFunction || n is DSVarArgFunction || n is CodeBlockNodeModel)
+                .ToDictionary(n => n.GUID, n => n);
 
-            var nodeTraceDataList = runtimeCore.RuntimeData.GetCallsitesForNodes(nodeGuids, runtimeCore.DSExecutable);
+            var nodeTraceDataList = runtimeCore.RuntimeData.GetCallsitesForNodes(nodesByGuid.Keys, runtimeCore.DSExecutable);
 
-            bool areElementsFoundForThisNode;
+            var nodes = new List<NodeModel>();
             foreach (Guid guid in nodeTraceDataList.Keys)
             {
-                areElementsFoundForThisNode = false;
                 foreach (CallSite cs in nodeTraceDataList[guid])
                 {
                     foreach (CallSite.SingleRunTraceData srtd in cs.TraceData)
@@ -664,50 +656,23 @@ namespace RevitServices.Persistence
 
                         foreach (string thingy in traceData)
                         {
-                            if (String.IsNullOrEmpty(thingy))
-                                continue;
-
-                            SerializableId sid = null;
-                            try
+                            if (SerializableId.TryDeserialize(thingy, out var sId) && changedElementIds.Contains(sId.IntID))
                             {
-                                sid = JsonConvert.DeserializeObject<SerializableId>(thingy);
+                                nodes.Add(nodesByGuid[guid]);
+                                goto nextNodeLabel; // break the nested loop -> go directly to the next nodeGuid
                             }
-                            catch
+                            else if (MultipleSerializableId.TryDeserialize(thingy, out var mId) && changedElementIds.Overlaps(mId.IntIDs))
                             {
-                                //do nothing 
-                            }
-
-                            if (sid != null)
-                            {
-                                foreach (var id in ids)
-                                {
-                                    if (sid.IntID == id.Value)
-                                    {
-                                        areElementsFoundForThisNode = true;
-                                        break;
-                                    }
-                                }
-
-                                if (areElementsFoundForThisNode)
-                                {
-                                    NodeModel inm =
-                                        workspace.Nodes.Where((n) => n.GUID == guid).FirstOrDefault();
-                                    nodes.Add(inm);
-                                    break;
-                                }
+                                nodes.Add(nodesByGuid[guid]);
+                                goto nextNodeLabel; // break the nested loop -> go directly to the next nodeGuid
                             }
                         }
-
-                        if (areElementsFoundForThisNode)
-                            break;
                     }
-
-                    if (areElementsFoundForThisNode)
-                        break;
                 }
+                nextNodeLabel: { } // skip unecessary callsite checks
             }
 
-            return nodes.AsEnumerable();
+            return nodes;
         }
 
         /// <summary>
@@ -718,23 +683,17 @@ namespace RevitServices.Persistence
         /// <param name="engine">The engine.</param>
         public static void SetElementFreezeState(WorkspaceModel workspace, NodeModel node, EngineController engine)
         {
-            RuntimeCore runtimeCore = null;
-            if (engine != null && (engine.LiveRunnerCore != null))
-                runtimeCore = engine.LiveRunnerRuntimeCore;
-
-            if (runtimeCore == null || node == null)
+            if (engine == null || engine.LiveRunnerCore == null || engine.LiveRunnerRuntimeCore == null)
                 return;
+            var runtimeCore = engine.LiveRunnerRuntimeCore;
 
             // Selecting all nodes that are either a DSFunction,
             // a DSVarArgFunction or a CodeBlockNodeModel into a list.
-            var nodeGuids = workspace.Nodes.Where((n) =>
-            {
-                return (n is DSFunction
-                        || (n is DSVarArgFunction)
-                        || (n is CodeBlockNodeModel));
-            }).Where((n) => n.GUID == node.GUID).Select((x) => x.GUID);
+            var nodesByGuid = workspace.Nodes.Where(n => n is DSFunction || n is DSVarArgFunction || n is CodeBlockNodeModel)
+                .Where(n => n.GUID == node.GUID)
+                .ToDictionary(n => n.GUID, n => n);
 
-            var nodeTraceDataList = runtimeCore.RuntimeData.GetCallsitesForNodes(nodeGuids, runtimeCore.DSExecutable);
+            var nodeTraceDataList = runtimeCore.RuntimeData.GetCallsitesForNodes(nodesByGuid.Keys, runtimeCore.DSExecutable);
             foreach (Guid guid in nodeTraceDataList.Keys)
             {
                 foreach (CallSite cs in nodeTraceDataList[guid])
@@ -745,38 +704,13 @@ namespace RevitServices.Persistence
 
                         foreach (string thingy in traceData)
                         {
-                            if (String.IsNullOrEmpty(thingy))
-                                continue;
-
-                            SerializableId sid = null;
-                            try
+                            if (SerializableId.TryDeserialize(thingy, out var sId))
                             {
-                                sid = JsonConvert.DeserializeObject<SerializableId>(thingy);
+                                setEachElementFreezeState(node.IsFrozen, sId.IntID);
                             }
-                            catch
+                            else if (MultipleSerializableId.TryDeserialize(thingy, out var mId))
                             {
-                                //do nothing 
-                            }
-
-                            if (sid != null)
-                            {
-                                setEachElementFreezeState(node.IsFrozen, sid.IntID);
-
-                            }
-
-                            MultipleSerializableId msid = null;
-                            try
-                            {
-                                msid = JsonConvert.DeserializeObject<MultipleSerializableId>(thingy);
-                            }
-                            catch
-                            {
-                                //do nothing 
-                            }
-
-                            if (msid != null)
-                            {
-                                msid.IntIDs.ForEach(x => setEachElementFreezeState(node.IsFrozen, x));
+                                mId.IntIDs.ForEach(id => setEachElementFreezeState(node.IsFrozen, id));
                             }
                         }
                     }
@@ -788,8 +722,7 @@ namespace RevitServices.Persistence
         {
             //Get the Autodesk.Revit.Element.
             Element el;
-            DocumentManager.Instance.CurrentDBDocument.TryGetElement(new ElementId(elementId),
-                out el);
+            DocumentManager.Instance.CurrentDBDocument.TryGetElement(new ElementId(elementId), out el);
 
             //Get the Revit Element wrapper.
             if (el != null)
