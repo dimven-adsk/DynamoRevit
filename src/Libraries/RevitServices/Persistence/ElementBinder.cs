@@ -11,9 +11,35 @@ using ProtoCore;
 using RevitServices.Elements;
 using Microsoft.CSharp;
 using Newtonsoft.Json;
+using System.IO;
+using System.Text;
+using Autodesk.Revit.DB.Electrical;
+using System.Text.Json;
+using System.Numerics;
+using System.Data;
+using ProtoCore.Lang;
 
 namespace RevitServices.Persistence
 {
+    internal class DeSer
+    {
+        public static bool TryDeserialize<T>(string json, out T deserialized)
+        {
+            deserialized = default;
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                try
+                {
+                    deserialized = JsonConvert.DeserializeObject<T>(json);
+                    return deserialized != null;
+                }
+                catch
+                { }
+            }
+            return false;
+        }
+    }
+
     /// <summary>
     /// Holds a  representation of a Revit ID that supports serialisation
     /// </summary>
@@ -37,6 +63,18 @@ namespace RevitServices.Persistence
         public override int GetHashCode()
         {
             return (StringID == null ? 0 : StringID.GetHashCode()) ^ (IntID.GetHashCode());
+        }
+
+        public static bool TryDeserialize(string json, out SerializableId id)
+        {
+            //return DeSer.Instance.TryDeserializeSingle(json, out id);
+            return DeSer.TryDeserialize(json, out id);
+        }
+
+        public string Serialize()
+        {
+            //return DeSer.Instance.SerializeSingle(this);
+            return JsonConvert.SerializeObject(this);
         }
     }
 
@@ -108,6 +146,17 @@ namespace RevitServices.Persistence
             return !this.StringIDs.Except(other.StringIDs).Any();
         }
 
+        public static bool TryDeserialize(string json, out MultipleSerializableId id)
+        {
+            //return DeSer.Instance.TryDeserializeMulti(json, out id);
+            return DeSer.TryDeserialize(json, out id);
+        }
+
+        public string Serialize()
+        {
+            //return DeSer.Instance.SerializeMulti(this);
+            return JsonConvert.SerializeObject(this);
+        }
     }
         /// <summary>
         /// Class for handling unique ids in a typesafe ammner
@@ -148,25 +197,11 @@ namespace RevitServices.Persistence
         {
             //Get the element ID that was cached in the callsite
             string traceString = TraceUtils.GetTraceData(REVIT_TRACE_ID);
-
-            if (String.IsNullOrEmpty(traceString))
-                return null;
-
-            SerializableId id = null;
-            try
+            if (SerializableId.TryDeserialize(traceString, out var sid))
             {
-                id = JsonConvert.DeserializeObject<SerializableId>(traceString);
+                return new Autodesk.Revit.DB.ElementId(sid.IntID);
             }
-            catch
-            {
-                //do nothing 
-            }
-
-            if (id == null)
-                return null; //There was no usable data in the trace cache
-
-            var traceDataInt = id.IntID;
-            return new Autodesk.Revit.DB.ElementId(traceDataInt);
+            return null; //There was no usable data in the trace cache
         }
 
         /// <summary>
@@ -178,25 +213,11 @@ namespace RevitServices.Persistence
         {
             //Get the element ID that was cached in the callsite
             string traceString = TraceUtils.GetTraceData(REVIT_TRACE_ID);
-
-            if(String.IsNullOrEmpty(traceString))
-                return null;
-
-            SerializableId id = null;
-            try
+            if (SerializableId.TryDeserialize(traceString, out var sid))
             {
-                id =  JsonConvert.DeserializeObject<SerializableId>(traceString);
+                return new ElementUUID(sid.StringID);
             }
-            catch
-            {
-                //do nothing 
-            }
-            
-            if (id == null)
             return null; //There was no usable data in the trace cache
-
-            var traceDataUuid = id.StringID;
-            return new ElementUUID(traceDataUuid);
         }
 
         /// <summary>
@@ -209,51 +230,15 @@ namespace RevitServices.Persistence
             //Get the element ID that was cached in the callsite
             string traceString = TraceUtils.GetTraceData(REVIT_TRACE_ID);
 
-            if (String.IsNullOrEmpty(traceString))
-                return null;
-
-            MultipleSerializableId multi = null;
-            try
+            if (MultipleSerializableId.TryDeserialize(traceString, out var mId))
             {
-                multi = JsonConvert.DeserializeObject<MultipleSerializableId>(traceString);
+                return mId.StringIDs.Select(id => new ElementUUID(id)).ToList();
             }
-            catch
+            else if (SerializableId.TryDeserialize(traceString, out var sId))
             {
-                //do nothing 
+                return new List<ElementUUID> { new ElementUUID(sId.StringID) };
             }
-
-            if (multi != null)
-            {
-                List<ElementUUID> uuids = new List<ElementUUID>();
-                foreach (var uuid in multi.StringIDs)
-                    uuids.Add(new ElementUUID(uuid));
-
-                return uuids;
-            }
-
-            SerializableId single = null;
-            try
-            {
-                single = JsonConvert.DeserializeObject<SerializableId>(traceString);
-            }
-            catch
-            {
-                //do nothing 
-            }
-
-            if (single != null)
-            {
-                var traceDataUuid = single.StringID;
-                List<ElementUUID> uuids = new List<ElementUUID>()
-                    {
-                        new ElementUUID(traceDataUuid)
-                    };
-                return uuids;
-            }
-
-            //No usable data was found
-            return null;
-
+            return null; //There was no usable data in the trace cache
         }
 
 
@@ -279,7 +264,19 @@ namespace RevitServices.Persistence
         /// <param name="element">The element to store in trace</param>
         public static void SetElementForTrace(Element element)
         {
-            SetElementForTrace(element.Id, new ElementUUID(element.UniqueId));
+            if (!IsEnabled) return;
+
+            var id = new SerializableId
+            {
+                IntID = element.Id.Value,
+                StringID = element.UniqueId
+            };
+
+            // if we're mutating the current Element id, that means we need to 
+            // clean up the old object
+
+            // Set the element ID cached in the callsite
+            TraceUtils.SetTraceData(REVIT_TRACE_ID, id.Serialize());
         }
 
         /// <summary>
@@ -292,9 +289,7 @@ namespace RevitServices.Persistence
 
             MultipleSerializableId ids = new MultipleSerializableId(elements);
 
-            var serializedTraceData = JsonConvert.SerializeObject(ids);
-
-            TraceUtils.SetTraceData(REVIT_TRACE_ID, serializedTraceData);
+            TraceUtils.SetTraceData(REVIT_TRACE_ID, ids.Serialize());
 
         }
 
@@ -308,16 +303,17 @@ namespace RevitServices.Persistence
         {
             if (!IsEnabled) return;
 
-            SerializableId id = new SerializableId();
-            id.IntID = elementId.Value;
-            id.StringID = elementUUID.UUID;
+            var id = new SerializableId
+            {
+                IntID = elementId.Value,
+                StringID = elementUUID.UUID
+            };
 
             // if we're mutating the current Element id, that means we need to 
             // clean up the old object
 
-            var serializedTraceData = JsonConvert.SerializeObject(id);
             // Set the element ID cached in the callsite
-            TraceUtils.SetTraceData(REVIT_TRACE_ID, serializedTraceData);
+            TraceUtils.SetTraceData(REVIT_TRACE_ID, id.Serialize());
         }
 
         /// <summary>
@@ -336,7 +332,7 @@ namespace RevitServices.Persistence
 
             T ret;
 
-            if (Elements.ElementUtils.TryGetElement(document, elementUUID.UUID, out ret))
+            if (document.TryGetElement(elementUUID.UUID, out ret))
                 return ret;
             else
                 return null;
@@ -364,7 +360,7 @@ namespace RevitServices.Persistence
             foreach (var uuid in uuids)
             {
                 T ret;
-                if (Elements.ElementUtils.TryGetElement(document, uuid.UUID, out ret))
+                if (document.TryGetElement(uuid.UUID, out ret))
                 {
                     elements.Add(ret);
                 }
@@ -426,32 +422,14 @@ namespace RevitServices.Persistence
             where TId: SerializableId
         {
             var traceString = ElementBinder.GetRawDataFromTrace();
-            if (String.IsNullOrEmpty(traceString))
-                return null;
 
-            TId tid = null;
-            try
+            if (DeSer.TryDeserialize(traceString, out TId tid))
             {
-                tid = JsonConvert.DeserializeObject<TId>(traceString);
+                if (document.TryGetElement(tid.StringID, out TElement element))
+                    return new Tuple<TElement, TId>(element, tid);
             }
-            catch
-            {
-                //do nothing 
-            }
-
-            if (tid == null)
-                return null;
-
-            var elementId = tid.IntID;
-            var uuid = tid.StringID;
-
-            var element = default(TElement);
-            
             // if we can't get the element, return null
-            if (!document.TryGetElement(uuid,out element))
-                return null;
-
-            return new Tuple<TElement, TId>(element, tid);
+            return null;
         }
         /// <summary>
         /// This function gets the nodes which are binding with the elements which have the
