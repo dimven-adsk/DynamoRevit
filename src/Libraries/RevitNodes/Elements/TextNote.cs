@@ -174,7 +174,7 @@ namespace Revit.Elements
                     }
                 }
 
-                
+
             }
 
             RVT.TextNoteType type = (RVT.TextNoteType)document.GetElement(typeId);
@@ -182,8 +182,8 @@ namespace Revit.Elements
             InternalSetElement(element);
 
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.SetElementForTrace(this.InternalElement);
 
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -201,7 +201,7 @@ namespace Revit.Elements
         /// <param name="rotation">Rotation in degrees</param>
         /// <param name="type">Revit TextNote Type</param>
         /// <returns></returns>
-        public static TextNote ByLocation(Revit.Elements.Views.View view, Autodesk.DesignScript.Geometry.Point location, string text, string alignment, [DefaultArgument("Revit.Elements.TextNoteType.Default()")]TextNoteType type, bool keepRotatedTextReadable = true, double rotation = 0)
+        public static TextNote ByLocation(Revit.Elements.Views.View view, Autodesk.DesignScript.Geometry.Point location, string text, string alignment, [DefaultArgument("Revit.Elements.TextNoteType.Default()")] TextNoteType type, bool keepRotatedTextReadable = true, double rotation = 0)
         {
             RVT.HorizontalTextAlignment horizontalTextAlignmentStyle = HorizontalTextAlignment.Center;
             if (!Enum.TryParse<RVT.HorizontalTextAlignment>(alignment, out horizontalTextAlignmentStyle))
@@ -320,7 +320,7 @@ namespace Revit.Elements
         internal static TextNote FromExisting(Autodesk.Revit.DB.TextNote instance, bool isRevitOwned)
         {
             return new TextNote(instance)
-            { 
+            {
                 IsRevitOwned = isRevitOwned
             };
         }

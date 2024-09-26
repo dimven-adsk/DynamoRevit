@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using Autodesk.Revit.DB;
-using RevitServices.Persistence;
 using System.Linq;
+using Autodesk.Revit.DB;
 using Revit.GeometryConversion;
+using RevitServices.Persistence;
 
 namespace Revit.Elements.Views
 {
@@ -206,7 +206,7 @@ namespace Revit.Elements.Views
             viewDiscipline = (ViewDiscipline)Enum.Parse(typeof(ViewDiscipline), discipline);
 
             RevitServices.Transactions.TransactionManager.Instance.EnsureInTransaction(Application.Document.Current.InternalDocument);
-            if(InternalView.CanModifyViewDiscipline())
+            if (InternalView.CanModifyViewDiscipline())
             {
                 var param = InternalView.get_Parameter(BuiltInParameter.VIEW_DISCIPLINE);
                 param.Set((int)viewDiscipline);
@@ -215,7 +215,7 @@ namespace Revit.Elements.Views
             {
                 throw new Exception(String.Format(Properties.Resources.CantModifyInView, "ViewDiscipline"));
             }
-            
+
             RevitServices.Transactions.TransactionManager.Instance.TransactionTaskDone();
 
             return this;
@@ -250,7 +250,7 @@ namespace Revit.Elements.Views
             displaystyle = (DisplayStyle)Enum.Parse(typeof(DisplayStyle), displayStyle);
 
             RevitServices.Transactions.TransactionManager.Instance.EnsureInTransaction(Application.Document.Current.InternalDocument);
-            if(InternalView.CanModifyDisplayStyle())
+            if (InternalView.CanModifyDisplayStyle())
                 InternalView.DisplayStyle = displaystyle;
             else
             {
@@ -542,7 +542,7 @@ namespace Revit.Elements.Views
         /// </summary>
         /// <param name="scale">View scale is the ration of true model size to paper size.</param>
         /// <returns name="view">View</returns>
-        public Revit.Elements.Views.View SetScale(int scale=100)
+        public Revit.Elements.Views.View SetScale(int scale = 100)
         {
             if (Autodesk.Revit.DB.View.IsValidViewScale(scale))
             {
@@ -583,7 +583,7 @@ namespace Revit.Elements.Views
         /// <returns></returns>
         public Boolean CanViewBeDuplicated(string viewDuplicateOption = "Duplicate")
         {
-            ViewDuplicateOption Option = (ViewDuplicateOption)Enum.Parse(typeof(ViewDuplicateOption),viewDuplicateOption);
+            ViewDuplicateOption Option = (ViewDuplicateOption)Enum.Parse(typeof(ViewDuplicateOption), viewDuplicateOption);
 
             return InternalView.CanViewBeDuplicated(Option);
         }
@@ -616,7 +616,7 @@ namespace Revit.Elements.Views
                 string newViewName = "";
                 if (!String.IsNullOrEmpty(prefix) || !String.IsNullOrEmpty(suffix))
                 {
-                    newViewName = prefix + view.Name + suffix;                    
+                    newViewName = prefix + view.Name + suffix;
                 }
                 Autodesk.Revit.UI.UIDocument uIDocument = new Autodesk.Revit.UI.UIDocument(Document);
                 var openedViews = uIDocument.GetOpenUIViews().ToList();
@@ -630,8 +630,8 @@ namespace Revit.Elements.Views
                     else
                         count--;
                 }
-                
-                if (count == 0) 
+
+                if (count == 0)
                 {
                     if (!CheckUniqueViewName(newViewName))
                         throw new ArgumentException(String.Format(Properties.Resources.ViewNameExists, newViewName));
@@ -664,10 +664,10 @@ namespace Revit.Elements.Views
                                     throw new InvalidOperationException(string.Format(Properties.Resources.CantCloseLastOpenView, viewElement.ToString()));
                             }
                         }
-                    }                    
-                }                
+                    }
+                }
 
-                ElementBinder.CleanupAndSetElementForTrace(Document, newView.InternalElement);
+                ElementBinder.CleanupAndSetElementForTrace(Document, newView.InternalElementId, newView.InternalUniqueId);
 
                 RevitServices.Transactions.TransactionManager.Instance.TransactionTaskDone();
             }
@@ -675,12 +675,12 @@ namespace Revit.Elements.Views
             {
                 //if (e is Autodesk.Revit.Exceptions.InvalidOperationException)
                 //    throw e;
-                if (newView != null) 
+                if (newView != null)
                 {
                     newView.Dispose();
                 }
                 throw e;
-            }            
+            }
 
             return newView;
         }
@@ -853,7 +853,7 @@ namespace Revit.Elements.Views
         #endregion
 
         #region PartsVisibility
-        
+
         /// <summary>
         /// The visibility setting for parts in this view. 
         /// </summary>

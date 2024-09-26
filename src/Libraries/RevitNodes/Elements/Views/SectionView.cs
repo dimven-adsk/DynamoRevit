@@ -53,7 +53,7 @@ namespace Revit.Elements.Views
         /// <summary>
         /// Private constructor
         /// </summary>
-        private SectionView( BoundingBoxXYZ bbox )
+        private SectionView(BoundingBoxXYZ bbox)
         {
             SafeInit(() => InitSectionView(bbox));
         }
@@ -83,7 +83,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, this.InternalElement);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -118,7 +118,7 @@ namespace Revit.Elements.Views
                 throw new Exception("There is no three dimensional view family in the document");
             }
 
-            var viewSection = ViewSection.CreateSection( Document, viewFam.Id, bbox);
+            var viewSection = ViewSection.CreateSection(Document, viewFam.Id, bbox);
 
             TransactionManager.Instance.TransactionTaskDone();
 

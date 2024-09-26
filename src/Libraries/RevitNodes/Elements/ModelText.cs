@@ -91,7 +91,7 @@ namespace Revit.Elements
         /// <param name="yCoordinateInPlane"></param>
         /// <param name="textDepth"></param>
         /// <param name="modelTextType"></param>
-        private void InitModelText(string text, Autodesk.Revit.DB.SketchPlane sketchPlane, 
+        private void InitModelText(string text, Autodesk.Revit.DB.SketchPlane sketchPlane,
             double xCoordinateInPlane, double yCoordinateInPlane, double textDepth,
             Autodesk.Revit.DB.ModelTextType modelTextType)
         {
@@ -125,7 +125,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -140,7 +140,7 @@ namespace Revit.Elements
         {
             TransactionManager.Instance.EnsureInTransaction(Document);
 
-            if(!InternalModelText.Depth.AlmostEquals(depth, 1.0e-6))
+            if (!InternalModelText.Depth.AlmostEquals(depth, 1.0e-6))
                 InternalModelText.Depth = depth;
 
             TransactionManager.Instance.TransactionTaskDone();
@@ -154,7 +154,7 @@ namespace Revit.Elements
         {
             TransactionManager.Instance.EnsureInTransaction(Document);
 
-            if(InternalModelText.Text != text)
+            if (InternalModelText.Text != text)
                 InternalModelText.Text = text;
 
             TransactionManager.Instance.TransactionTaskDone();
@@ -168,7 +168,7 @@ namespace Revit.Elements
         {
             TransactionManager.Instance.EnsureInTransaction(Document);
 
-            if(InternalModelText.ModelTextType.UniqueId != modelTextType.UniqueId)
+            if (InternalModelText.ModelTextType.UniqueId != modelTextType.UniqueId)
                 InternalModelText.ModelTextType = modelTextType;
 
             TransactionManager.Instance.TransactionTaskDone();
@@ -201,7 +201,7 @@ namespace Revit.Elements
         /// <returns></returns>
         private static bool PositionUnchanged(Autodesk.Revit.DB.ModelText oldModelText, Autodesk.Revit.DB.SketchPlane newSketchPlane, double xCoordinateInPlane, double yCoordinateInPlane)
         {
-           
+
             var oldPosition = ((LocationPoint)oldModelText.Location).Point;
 
             var plane = newSketchPlane.GetPlane();
@@ -210,7 +210,7 @@ namespace Revit.Elements
             return (oldPosition.IsAlmostEqualTo(newPosition));
 
         }
-        
+
         /// <summary>
         /// Create a ModelText element in the current Family Document
         /// </summary>
@@ -228,9 +228,9 @@ namespace Revit.Elements
             // obtain the position of the ModelText element in the plane of the sketchPlane
             var plane = sketchPlane.GetPlane();
             var pos = plane.Origin + plane.XVec * xCoordinateInPlane + plane.YVec * yCoordinateInPlane;
-                
+
             // create the modeltext
-            var mt = Document.FamilyCreate.NewModelText(text, modelTextType, sketchPlane, pos, HorizontalAlign.Left, textDepth);         
+            var mt = Document.FamilyCreate.NewModelText(text, modelTextType, sketchPlane, pos, HorizontalAlign.Left, textDepth);
 
             TransactionManager.Instance.TransactionTaskDone();
 
@@ -283,7 +283,7 @@ namespace Revit.Elements
         /// <param name="textDepth"></param>
         /// <param name="modelTextType"></param>
         /// <returns></returns>
-        public static ModelText ByTextSketchPlaneAndPosition(string text, SketchPlane sketchPlane, double xCoordinateInPlane, double yCoordinateInPlane, double textDepth, ModelTextType modelTextType )
+        public static ModelText ByTextSketchPlaneAndPosition(string text, SketchPlane sketchPlane, double xCoordinateInPlane, double yCoordinateInPlane, double textDepth, ModelTextType modelTextType)
         {
             if (!Document.IsFamilyDocument)
             {
@@ -305,10 +305,10 @@ namespace Revit.Elements
                 throw new ArgumentNullException("modelTextType");
             }
 
-            return new ModelText(text, sketchPlane.InternalSketchPlane, 
+            return new ModelText(text, sketchPlane.InternalSketchPlane,
                 xCoordinateInPlane * UnitConverter.DynamoToHostFactor(SpecTypeId.Length),
                 yCoordinateInPlane * UnitConverter.DynamoToHostFactor(SpecTypeId.Length),
-                textDepth * UnitConverter.DynamoToHostFactor(SpecTypeId.Length), 
+                textDepth * UnitConverter.DynamoToHostFactor(SpecTypeId.Length),
                 modelTextType.InternalModelTextType);
         }
 

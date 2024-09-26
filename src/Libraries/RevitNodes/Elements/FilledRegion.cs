@@ -104,12 +104,13 @@ namespace Revit.Elements
             if (null != region)
                 DocumentManager.Instance.DeleteElement(new ElementUUID(region.UniqueId));
 
-            region = Autodesk.Revit.DB.FilledRegion.Create(document, typeId, view.Id, boundary.ToList()); 
+            region = Autodesk.Revit.DB.FilledRegion.Create(document, typeId, view.Id, boundary.ToList());
 
             InternalSetElement(region);
 
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.SetElementForTrace(this.InternalElement);
+
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion

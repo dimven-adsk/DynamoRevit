@@ -46,7 +46,7 @@ namespace Revit.Elements
         /// Internal reference plane
         /// </summary>
         /// <param name="referencePlane"></param>
-        private ReferencePlane( Autodesk.Revit.DB.ReferencePlane referencePlane)
+        private ReferencePlane(Autodesk.Revit.DB.ReferencePlane referencePlane)
         {
             SafeInit(() => InitReferencePlane(referencePlane), true);
         }
@@ -58,7 +58,7 @@ namespace Revit.Elements
         /// <param name="freeEnd"></param>
         /// <param name="normal"></param>
         /// <param name="view"></param>
-        private ReferencePlane(XYZ bubbleEnd, XYZ freeEnd, XYZ normal, View view )
+        private ReferencePlane(XYZ bubbleEnd, XYZ freeEnd, XYZ normal, View view)
         {
             SafeInit(() => InitReferencePlane(bubbleEnd, freeEnd, normal, view));
         }
@@ -128,7 +128,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalReferencePlane);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -224,7 +224,7 @@ namespace Revit.Elements
         /// </summary>
         /// <param name="line">The line where the bubble wil be located at the start</param>
         /// <returns></returns>
-        public static ReferencePlane ByLine( Line line )
+        public static ReferencePlane ByLine(Line line)
         {
             if (line == null)
             {
@@ -235,10 +235,10 @@ namespace Revit.Elements
             var end = line.EndPoint.ToXyz();
             var norm = (end - start).GetPerpendicular();
 
-            return new ReferencePlane(  start, 
+            return new ReferencePlane(start,
                                         end,
-                                        norm, 
-                                        Document.ActiveView );
+                                        norm,
+                                        Document.ActiveView);
         }
 
         /// <summary>
@@ -247,7 +247,7 @@ namespace Revit.Elements
         /// <param name="start">The location where the bubble will be located</param>
         /// <param name="end">The other end</param>
         /// <returns></returns>
-        public static ReferencePlane ByStartPointEndPoint( Point start, Point end )
+        public static ReferencePlane ByStartPointEndPoint(Point start, Point end)
         {
             if (start == null)
             {
@@ -259,7 +259,7 @@ namespace Revit.Elements
                 throw new ArgumentNullException("end");
             }
 
-            return new ReferencePlane(  start.ToXyz(), 
+            return new ReferencePlane(start.ToXyz(),
                                         end.ToXyz(),
                                         (end.ToXyz() - start.ToXyz()).GetPerpendicular(),
                                         Document.ActiveView);

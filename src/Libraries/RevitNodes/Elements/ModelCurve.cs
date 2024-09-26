@@ -121,8 +121,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
-
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -201,7 +200,7 @@ namespace Revit.Elements
             if (!Document.IsFamilyDocument)
                 throw new Exception(Properties.Resources.ReferenceCurveCreationFailure);
 
-           return new ModelCurve(ExtractLegalRevitCurve(curve), true);
+            return new ModelCurve(ExtractLegalRevitCurve(curve), true);
         }
 
         #endregion

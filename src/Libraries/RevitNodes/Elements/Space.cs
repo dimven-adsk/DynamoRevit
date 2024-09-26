@@ -1,13 +1,9 @@
-﻿using Autodesk.DesignScript.Runtime;
+﻿using System.Collections.Generic;
+using Autodesk.DesignScript.Runtime;
 using Autodesk.Revit.DB;
 using Revit.GeometryConversion;
 using RevitServices.Persistence;
 using RevitServices.Transactions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Revit.Elements
 {
@@ -111,7 +107,7 @@ namespace Revit.Elements
             // Commit transaction
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion

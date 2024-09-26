@@ -59,7 +59,7 @@ namespace Revit.Filter
         /// <param name="elem"></param>
         private ParameterFilterElement(Autodesk.Revit.DB.ParameterFilterElement elem)
         {
-            SafeInit(() => InitElement(elem),true);
+            SafeInit(() => InitElement(elem), true);
         }
 
         /// <summary>
@@ -97,21 +97,21 @@ namespace Revit.Filter
             Autodesk.Revit.DB.Document document = DocumentManager.Instance.CurrentDBDocument;
             TransactionManager.Instance.EnsureInTransaction(document);
             var elemFilters = new List<ElementFilter>();
-            foreach(var rule in rules)
+            foreach (var rule in rules)
             {
-               var elemParamFilter = new ElementParameterFilter(rule);
-               elemFilters.Add(elemParamFilter);
+                var elemParamFilter = new ElementParameterFilter(rule);
+                elemFilters.Add(elemParamFilter);
             }
             Autodesk.Revit.DB.ElementFilter eleFilter = new LogicalOrFilter(elemFilters);
 
             var elem = ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.ParameterFilterElement>(document);
-         
+
 
             if (elem == null)
             {
-               // ParameterFilterElement..::..Create Method (Document, String, ICollection<ElementId>, IList<FilterRule>) is deprecated in Revit 2019 and will be removed in the next version of Revit. 
-               //We suggest you instead use a Create method that takes an ElementFilter as input.
-               elem = Autodesk.Revit.DB.ParameterFilterElement.Create(document, name, ids.ToList(), eleFilter);
+                // ParameterFilterElement..::..Create Method (Document, String, ICollection<ElementId>, IList<FilterRule>) is deprecated in Revit 2019 and will be removed in the next version of Revit. 
+                //We suggest you instead use a Create method that takes an ElementFilter as input.
+                elem = Autodesk.Revit.DB.ParameterFilterElement.Create(document, name, ids.ToList(), eleFilter);
             }
             else
             {
@@ -125,7 +125,8 @@ namespace Revit.Filter
             InternalSetElement(elem);
 
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.SetElementForTrace(this.InternalElement);
+
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -143,7 +144,7 @@ namespace Revit.Filter
         {
             List<Autodesk.Revit.DB.FilterRule> ruleSet = new List<Autodesk.Revit.DB.FilterRule>();
             foreach (FilterRule rule in rules)
-            { 
+            {
                 ruleSet.Add(rule.InternalFilterRule);
             }
 
@@ -169,7 +170,7 @@ namespace Revit.Filter
         internal static ParameterFilterElement FromExisting(Autodesk.Revit.DB.ParameterFilterElement instance, bool isRevitOwned)
         {
             return new ParameterFilterElement(instance)
-            { 
+            {
                 IsRevitOwned = isRevitOwned
             };
         }

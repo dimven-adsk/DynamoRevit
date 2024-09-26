@@ -95,13 +95,13 @@ namespace Revit.Elements.Views
             TransactionManager.Instance.EnsureInTransaction(doc);
 
             // Get existing view if possible
-            var vs = ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.ViewSchedule>(doc) ?? 
+            var vs = ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.ViewSchedule>(doc) ??
                 CreateViewSchedule(category, name, type);
 
             InternalSetScheduleView(vs);
 
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.CleanupAndSetElementForTrace(doc, InternalElement);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -121,7 +121,7 @@ namespace Revit.Elements.Views
             InternalSetScheduleView(vs);
 
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.CleanupAndSetElementForTrace(doc, InternalElement);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion

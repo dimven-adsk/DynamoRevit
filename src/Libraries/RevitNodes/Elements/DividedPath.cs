@@ -15,10 +15,10 @@ namespace Revit.Elements
     /// A Revit DividedPath
     /// </summary>
     [DynamoServices.RegisterForTrace]
-    public class DividedPath: Element
+    public class DividedPath : Element
     {
         #region Private fields
-        
+
         private static Options geometryOptions = new Options
         {
             ComputeReferences = true,
@@ -122,7 +122,7 @@ namespace Revit.Elements
             TransactionManager.Instance.TransactionTaskDone();
 
             // delete any cached ele and set this new one
-            ElementBinder.CleanupAndSetElementForTrace(Document, this.InternalElement);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -178,7 +178,7 @@ namespace Revit.Elements
 
             if (curveReferences.Any(x => x == null))
             {
-                throw new ArgumentNullException(String.Format("curves[{0}]",  Array.FindIndex(curveReferences, x => x == null)) );
+                throw new ArgumentNullException(String.Format("curves[{0}]", Array.FindIndex(curveReferences, x => x == null)));
             }
 
             return new DividedPath(curveReferences.Select(x => ElementCurveReference.TryGetCurveReference(x)).ToArray(), divisions);

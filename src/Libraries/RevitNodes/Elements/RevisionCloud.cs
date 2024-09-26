@@ -107,8 +107,8 @@ namespace Revit.Elements
 
             // commit transaction and set element for trace
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.SetElementForTrace(this.InternalElement);
 
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -149,7 +149,8 @@ namespace Revit.Elements
         /// </summary>
         public Revision Revision
         {
-            get {
+            get
+            {
                 Autodesk.Revit.DB.Document document = DocumentManager.Instance.CurrentDBDocument;
                 Autodesk.Revit.DB.Revision revision = (Autodesk.Revit.DB.Revision)document.GetElement(this.InternalRevitElement.RevisionId);
                 return Revision.FromExisting(revision, true);
@@ -162,7 +163,7 @@ namespace Revit.Elements
         /// Get Revision cloud's curves
         /// </summary>
         new public IEnumerable<Autodesk.DesignScript.Geometry.Curve> Curves
-        { 
+        {
             get
             {
                 List<Autodesk.DesignScript.Geometry.Curve> curves = new List<Autodesk.DesignScript.Geometry.Curve>();

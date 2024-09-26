@@ -55,7 +55,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElement);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -74,7 +74,7 @@ namespace Revit.Elements.Views
                 throw new ArgumentNullException("level");
             }
 
-            return new FloorPlanView( level.InternalLevel );
+            return new FloorPlanView(level.InternalLevel);
         }
 
         #endregion
@@ -87,7 +87,7 @@ namespace Revit.Elements.Views
         /// <param name="plan"></param>
         /// <param name="isRevitOwned"></param>
         /// <returns></returns>
-        internal static FloorPlanView FromExisting( Autodesk.Revit.DB.ViewPlan plan, bool isRevitOwned )
+        internal static FloorPlanView FromExisting(Autodesk.Revit.DB.ViewPlan plan, bool isRevitOwned)
         {
             if (plan == null)
             {

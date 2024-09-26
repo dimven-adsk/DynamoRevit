@@ -102,7 +102,7 @@ namespace Revit.Elements
                     (wallLocation.Curve is Autodesk.Revit.DB.Arc == curve is Autodesk.Revit.DB.Arc) ||
                     (wallLocation.Curve is Autodesk.Revit.DB.Ellipse == curve is Autodesk.Revit.DB.Ellipse))
                 {
-                    if(!CurveUtils.CurvesAreSimilar(wallLocation.Curve, curve))
+                    if (!CurveUtils.CurvesAreSimilar(wallLocation.Curve, curve))
                         wallLocation.Curve = curve;
 
                     Autodesk.Revit.DB.Parameter baseLevelParameter =
@@ -127,8 +127,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            // delete the element stored in trace and add this new one
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalWall);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion

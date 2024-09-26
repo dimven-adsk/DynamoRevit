@@ -43,7 +43,7 @@ namespace Revit.Elements
         {
             SafeInit(() => InitCurtainSystem(curtainSystem), true);
         }
-      
+
         /// <summary>
         /// Private constructor
         /// </summary>
@@ -92,7 +92,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalCurtainSystem);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion

@@ -7,10 +7,9 @@ using Dynamo.Graph.Nodes;
 using Dynamo.Graph.Nodes.ZeroTouch;
 using Dynamo.Graph.Workspaces;
 using DynamoServices;
+using Newtonsoft.Json;
 using ProtoCore;
 using RevitServices.Elements;
-using Microsoft.CSharp;
-using Newtonsoft.Json;
 
 namespace RevitServices.Persistence
 {
@@ -109,10 +108,10 @@ namespace RevitServices.Persistence
         }
 
     }
-        /// <summary>
-        /// Class for handling unique ids in a typesafe ammner
-        /// </summary>
-        public class ElementUUID
+    /// <summary>
+    /// Class for handling unique ids in a typesafe ammner
+    /// </summary>
+    public class ElementUUID
     {
         public String UUID { get; set; }
 
@@ -125,7 +124,6 @@ namespace RevitServices.Persistence
         {
             this.UUID = uuid;
         }
-
     }
 
 
@@ -179,21 +177,21 @@ namespace RevitServices.Persistence
             //Get the element ID that was cached in the callsite
             string traceString = TraceUtils.GetTraceData(REVIT_TRACE_ID);
 
-            if(String.IsNullOrEmpty(traceString))
+            if (String.IsNullOrEmpty(traceString))
                 return null;
 
             SerializableId id = null;
             try
             {
-                id =  JsonConvert.DeserializeObject<SerializableId>(traceString);
+                id = JsonConvert.DeserializeObject<SerializableId>(traceString);
             }
             catch
             {
                 //do nothing 
             }
-            
+
             if (id == null)
-            return null; //There was no usable data in the trace cache
+                return null; //There was no usable data in the trace cache
 
             var traceDataUuid = id.StringID;
             return new ElementUUID(traceDataUuid);
@@ -212,25 +210,8 @@ namespace RevitServices.Persistence
             if (String.IsNullOrEmpty(traceString))
                 return null;
 
-            MultipleSerializableId multi = null;
-            try
-            {
-                multi = JsonConvert.DeserializeObject<MultipleSerializableId>(traceString);
-            }
-            catch
-            {
-                //do nothing 
-            }
-
-            if (multi != null)
-            {
-                List<ElementUUID> uuids = new List<ElementUUID>();
-                foreach (var uuid in multi.StringIDs)
-                    uuids.Add(new ElementUUID(uuid));
-
-                return uuids;
-            }
-
+            //optimize by putting the most common case first (SerializableId)
+            //@TODO: revert order once all nodes serialize to MultipleSerializableId
             SerializableId single = null;
             try
             {
@@ -243,12 +224,23 @@ namespace RevitServices.Persistence
 
             if (single != null)
             {
-                var traceDataUuid = single.StringID;
-                List<ElementUUID> uuids = new List<ElementUUID>()
-                    {
-                        new ElementUUID(traceDataUuid)
-                    };
-                return uuids;
+                return [new ElementUUID(single.StringID)];
+            }
+
+
+            MultipleSerializableId multi = null;
+            try
+            {
+                multi = JsonConvert.DeserializeObject<MultipleSerializableId>(traceString);
+            }
+            catch
+            {
+                //do nothing 
+            }
+
+            if (multi != null)
+            {
+                return multi.StringIDs.Select(sid => new ElementUUID(sid)).ToList();
             }
 
             //No usable data was found
@@ -277,6 +269,7 @@ namespace RevitServices.Persistence
         /// null if there is no object, or it's of the wrong type etc.
         /// </summary>
         /// <param name="element">The element to store in trace</param>
+        [Obsolete("Please use the SetElementForTrace that has id and unique id as arguments")]
         public static void SetElementForTrace(Element element)
         {
             SetElementForTrace(element.Id, new ElementUUID(element.UniqueId));
@@ -308,9 +301,11 @@ namespace RevitServices.Persistence
         {
             if (!IsEnabled) return;
 
-            SerializableId id = new SerializableId();
-            id.IntID = elementId.Value;
-            id.StringID = elementUUID.UUID;
+            SerializableId id = new SerializableId
+            {
+                IntID = elementId.Value,
+                StringID = elementUUID.UUID
+            };
 
             // if we're mutating the current Element id, that means we need to 
             // clean up the old object
@@ -318,6 +313,22 @@ namespace RevitServices.Persistence
             var serializedTraceData = JsonConvert.SerializeObject(id);
             // Set the element ID cached in the callsite
             TraceUtils.SetTraceData(REVIT_TRACE_ID, serializedTraceData);
+        }
+
+        /// <summary>
+        /// Set the element associated with the current operation from trace
+        /// null if there is no object, or it's of the wrong type etc.
+        /// </summary>
+        /// <param name="elementId">The element's Id to store in trace</param>
+        /// <param name="elementUUID">The element's unique id to store in trace</param>
+        public static void SetElementForTrace(ElementId elementId, string elementUUID)
+        {
+            if (elementId == null || string.IsNullOrWhiteSpace(elementUUID))
+            {
+                return;
+            }
+
+            SetElementForTrace(elementId, new ElementUUID(elementUUID));
         }
 
         /// <summary>
@@ -380,6 +391,7 @@ namespace RevitServices.Persistence
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
+        [Obsolete("Please use the CleanupAndSetElementForTrace that has id and unique id as arguments")]
         public static void CleanupAndSetElementForTrace(Document document, Element newElement)
         {
             if (!IsEnabled) return;
@@ -394,6 +406,29 @@ namespace RevitServices.Persistence
             }
 
             SetElementForTrace(newElement);
+        }
+
+        /// <summary>
+        /// Delete a possibly outdated Revit Element and set new element for trace.  
+        /// This method should be called if the element could not be mutated on a 
+        /// second run and the old value must be destroyed.  
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static void CleanupAndSetElementForTrace(Document document, ElementId newElementId, string newElementUid)
+        {
+            if (!IsEnabled) return;
+
+            // if the element id has changed on a subsequent run, that means we
+            // couldn't mutate the element - hence we need to delete the old
+            // element
+            var oldId = GetElementUUIDFromTrace(document);
+            if (oldId != null && !string.IsNullOrWhiteSpace(newElementUid) && oldId.UUID != newElementUid)
+            {
+                DocumentManager.Instance.DeleteElement(oldId);
+            }
+
+            SetElementForTrace(newElementId, newElementUid);
         }
 
         /// <summary>
@@ -423,7 +458,7 @@ namespace RevitServices.Persistence
         /// <returns></returns>
         public static Tuple<TElement, TId> GetElementAndTraceData<TElement, TId>(Document document)
             where TElement : Autodesk.Revit.DB.Element
-            where TId: SerializableId
+            where TId : SerializableId
         {
             var traceString = ElementBinder.GetRawDataFromTrace();
             if (String.IsNullOrEmpty(traceString))
@@ -446,9 +481,9 @@ namespace RevitServices.Persistence
             var uuid = tid.StringID;
 
             var element = default(TElement);
-            
+
             // if we can't get the element, return null
-            if (!document.TryGetElement(uuid,out element))
+            if (!document.TryGetElement(uuid, out element))
                 return null;
 
             return new Tuple<TElement, TId>(element, tid);

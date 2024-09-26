@@ -99,7 +99,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -145,7 +145,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -273,7 +273,7 @@ namespace Revit.Elements.Views
         /// <param name="view"></param>
         /// <param name="isRevitOwned"></param>
         /// <returns></returns>
-        internal static PerspectiveView FromExisting( Autodesk.Revit.DB.View3D view, bool isRevitOwned )
+        internal static PerspectiveView FromExisting(Autodesk.Revit.DB.View3D view, bool isRevitOwned)
         {
             return new PerspectiveView(view)
             {

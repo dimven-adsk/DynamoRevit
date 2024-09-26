@@ -127,7 +127,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
 
             // otherwise the point value is invalid for downstream requests
             DocumentManager.Regenerate();
@@ -164,7 +164,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -192,7 +192,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -203,7 +203,7 @@ namespace Revit.Elements
         {
             TransactionManager.Instance.EnsureInTransaction(Document);
 
-            if(!InternalReferencePoint.Position.IsAlmostEqualTo(xyz))
+            if (!InternalReferencePoint.Position.IsAlmostEqualTo(xyz))
                 InternalReferencePoint.Position = xyz;
 
             TransactionManager.Instance.TransactionTaskDone();
@@ -223,7 +223,7 @@ namespace Revit.Elements
             PointOnCurveMeasurementType measurementType, PointOnCurveMeasureFrom measureFrom)
         {
             TransactionManager.Instance.EnsureInTransaction(Document);
-            
+
             var plc = new PointLocationOnCurve(measurementType, parameter, measureFrom);
             var edgePoint = Document.Application.Create.NewPointOnEdge(curveReference, plc);
             InternalReferencePoint.SetPointElementReference(edgePoint);
@@ -387,7 +387,7 @@ namespace Revit.Elements
                 throw new ArgumentNullException("direction");
             }
 
-            var pt = (Point) basePoint.Translate(direction.Scale(distance));
+            var pt = (Point)basePoint.Translate(direction.Scale(distance));
 
             return new ReferencePoint(pt.ToXyz());
 
