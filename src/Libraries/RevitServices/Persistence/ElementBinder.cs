@@ -23,6 +23,194 @@ namespace RevitServices.Persistence
 {
     internal class DeSer
     {
+        static DeSer _instance = new DeSer();
+        public static DeSer Instance => _instance;
+
+        //StringBuilder _serializeIdBuilder = new StringBuilder(128);
+
+        void WriteProperty<T>(JsonWriter w, string propName, T value)
+        {
+            w.WritePropertyName(propName);
+            w.WriteValue(value);
+        }
+
+        void WritePropertyList<T>(JsonWriter w, string propName, List<T> values)
+        {
+            w.WritePropertyName(propName);
+            w.WriteStartArray();
+            foreach (var item in values)
+                w.WriteValue(item);
+            w.WriteEndArray();
+        }
+
+        internal string SerializeSingle(SerializableId id)
+        {
+            // { "StringId": "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAAABBBBBBBB", "IntId": 1234567890 }
+            //_serializeIdBuilder.Clear();
+            var builder = new StringBuilder(128);
+            using var tw = new StringWriter(builder);
+            using var jw = new JsonTextWriter(tw);
+
+            jw.WriteStartObject();
+            WriteProperty(jw, nameof(SerializableId.StringID), id.StringID);
+            WriteProperty(jw, nameof(SerializableId.IntID), id.IntID);
+            //jw.WritePropertyName(nameof(SerializableId.StringID));
+            //jw.WriteValue(id.StringID);
+            //jw.WritePropertyName(nameof(SerializableId.IntID));
+            //jw.WriteValue(id.IntID);
+            jw.WriteEndObject();
+            return builder.ToString();
+        }
+
+        internal string SerializeMulti(MultipleSerializableId ids)
+        {
+            var builder = new StringBuilder(ids.StringIDs.Count * 128);
+            using var tw = new StringWriter(builder);
+            using var jw = new JsonTextWriter(tw);
+
+            jw.WriteStartObject();
+            WritePropertyList(jw, nameof(MultipleSerializableId.StringIDs), ids.StringIDs);
+            WritePropertyList(jw, nameof(MultipleSerializableId.IntIDs), ids.IntIDs);
+            //jw.WritePropertyName(nameof(MultipleSerializableId.IntIDs));
+            //jw.WriteStartArray();
+            //foreach (var item in ids.IntIDs)
+            //    jw.WriteValue(item);
+            //jw.WriteEndArray();
+            //jw.WritePropertyName(nameof(MultipleSerializableId.StringIDs));
+            //jw.WriteStartArray();
+            //foreach (var item in ids.StringIDs)
+            //    jw.WriteValue(item);
+            //jw.WriteEndArray();
+            jw.WriteEndObject();
+            return builder.ToString();
+        }
+
+        public static long? ReadAsLong(JsonReader reader)
+        {
+            if (reader.Read() && BigInteger.TryParse(reader.Value.ToString(), out BigInteger bigInt))
+            {
+                if (long.MinValue <= bigInt && bigInt <= long.MaxValue)
+                    return (long)bigInt;
+            }
+
+            return null;
+        }
+
+        internal bool TryDeserializeSingle(string s, out SerializableId id)
+        {
+            id = null;
+            if (string.IsNullOrWhiteSpace(s))
+                return false;
+
+            using var sr = new StringReader(s);
+            using var jr = new JsonTextReader(sr);
+
+            var state = DeserState.None;
+            
+            while (jr.Read())
+            {
+                switch (jr.TokenType)
+                {
+                    case JsonToken.StartObject when state == DeserState.None:
+                        id = new SerializableId();
+                        state = DeserState.InObject;
+                        break;
+                    case JsonToken.PropertyName when state.HasFlag(DeserState.InObject):
+                        var propName = jr.Value.ToString();
+                        if (propName == nameof(SerializableId.StringID) && jr.ReadAsString() is string stringId)
+                        {
+                            id.StringID = stringId;
+                            state |= DeserState.PropString;
+                            break;
+                        }
+                        else if (propName == nameof(SerializableId.IntID) && ReadAsLong(jr) is long intId)
+                        {
+
+                            id.IntID = intId;
+                            state |= DeserState.PropInt;
+                            break;
+                        }
+                        return false;
+                    case JsonToken.EndObject when state.HasFlag(DeserState.Both):
+                        return true;
+                    default:
+                        break;
+                }
+            }
+            return false;
+        }
+
+        [Flags]
+        enum DeserState
+        {
+            None = 0x00,
+            InObject = 0x01,
+            PropString = 0x02,
+            PropInt = 0x04,
+            Both = PropString | PropInt
+        }
+
+        bool FillList<T>(JsonReader reader, List<T> list, JsonToken tokenType, Func<JsonReader, T> read) 
+        {
+            if (reader.Read() && reader.TokenType != JsonToken.StartArray)
+                return false;
+
+            while(reader.Read() && reader.TokenType == tokenType)
+                list.Add(read(reader));
+
+            return reader.TokenType == JsonToken.EndArray;
+        }
+
+        bool FillLongList(JsonReader reader, List<long> list) => 
+            FillList(reader, list, JsonToken.Integer, r => (long)r.ReadAsDouble());
+
+        bool FillStringList(JsonReader reader, List<string> list) =>
+            FillList(reader, list, JsonToken.String, r => r.ReadAsString());
+
+        internal bool TryDeserializeMulti(string s, out MultipleSerializableId id)
+        {
+            id = null;
+            if (string.IsNullOrWhiteSpace(s))
+                return false;
+
+            using var sr = new StringReader(s);
+            using var jr = new JsonTextReader(sr);
+
+            try
+            {
+                var state = DeserState.None;
+                while (jr.Read())
+                {
+                    switch (jr.TokenType)
+                    {
+                        case JsonToken.StartObject when state.HasFlag(DeserState.None):
+                            id = new MultipleSerializableId();
+                            state = DeserState.InObject;
+                            break;
+                        case JsonToken.PropertyName when state.HasFlag(DeserState.InObject):
+                            var propName = jr.Value.ToString();
+                            if (propName == nameof(MultipleSerializableId.StringIDs) && FillStringList(jr, id.StringIDs))
+                            {
+                                state |= DeserState.PropString;
+                                break;
+                            }
+                            else if (propName == nameof(MultipleSerializableId.IntIDs) && FillLongList(jr, id.IntIDs))
+                            {
+                                state |= DeserState.PropInt;
+                                break;
+                            }
+                            return false;
+                        case JsonToken.EndObject when state.HasFlag(DeserState.Both):
+                            return true;
+                        default:
+                            break;
+                    }
+                }
+            }
+            catch { } // malformed json?
+            return false;
+        }
+
         public static bool TryDeserialize<T>(string json, out T deserialized)
         {
             deserialized = default;
