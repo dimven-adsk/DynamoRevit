@@ -1,10 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
-
 using Autodesk.DesignScript.Runtime;
 using Autodesk.Revit.DB;
 using RevitServices.Persistence;
-using System.Collections.Generic;
 
 namespace Revit.Elements
 {
@@ -35,7 +34,7 @@ namespace Revit.Elements
             get
             {
                 var parent = internalCategory.Parent;
-                if(parent == null)
+                if (parent == null)
                 {
                     return internalCategory.Name;
                 }
@@ -103,14 +102,16 @@ namespace Revit.Elements
                 var document = DocumentManager.Instance.CurrentDBDocument;
                 BuiltInCategory categoryId = (BuiltInCategory)id;
                 Autodesk.Revit.DB.Category category = Autodesk.Revit.DB.Category.GetCategory(document, categoryId);
-                if(null == category)
-                    throw new ArgumentException(Properties.Resources.InvalidCategory);
+                if (null == category)
+                {
+                    return null;
+                }
 
                 return new Category(category);
             }
             catch
             {
-                throw new ArgumentException(Properties.Resources.InvalidCategory);
+                return null;
             }
         }
 
@@ -143,32 +144,32 @@ namespace Revit.Elements
         private static Autodesk.Revit.DB.Category GetCategory(String name)
         {
             Autodesk.Revit.DB.Category category = null;
-            
+
             var splits = name.Split('-');
 
             // search by ui name first, that can be "{parent name} - {name}" or only the "{name}"
             category = FindCategory((Autodesk.Revit.DB.Category cat) => { return name.Equals(new Revit.Elements.Category(cat).Name); });
-            if(category != null)
+            if (category != null)
             {
                 return category;
             }
             else if (splits.Count() > 1)
             {
                 var indexs = FindAllChars(name, '-');
-                foreach(var index in indexs)
+                foreach (var index in indexs)
                 {
                     var parentName = name.Substring(0, index).TrimEnd(' ');
                     var subName = name.Substring(index + 1).TrimStart(' ');
                     Autodesk.Revit.DB.Category parentCategory = FindCategory((Autodesk.Revit.DB.Category cat) => { return parentName.Equals(cat.Name); });
-                    if(parentCategory != null)
+                    if (parentCategory != null)
                     {
-                        if(parentCategory.SubCategories.Contains(subName))
+                        if (parentCategory.SubCategories.Contains(subName))
                         {
                             category = parentCategory.SubCategories.get_Item(subName);
                             break;
                         }
                     }
-                }                
+                }
             }
             else
             {
@@ -176,7 +177,7 @@ namespace Revit.Elements
                 // Use category enum name with or without OST_ prefix
                 var fullName = name.Length > 3 && name.Substring(0, 4) == "OST_" ? name : "OST_" + name;
                 var names = Enum.GetNames(typeof(BuiltInCategory));
-                if(System.Array.Exists(names, entry => entry == fullName))
+                if (System.Array.Exists(names, entry => entry == fullName))
                 {
                     var builtInCat = (BuiltInCategory)Enum.Parse(typeof(BuiltInCategory), fullName);
                     category = Autodesk.Revit.DB.Category.GetCategory(DocumentManager.Instance.CurrentDBDocument, builtInCat);
@@ -194,8 +195,8 @@ namespace Revit.Elements
             int index = -1;
             for (int i = 0; i < splits.Count() - 1; i++)
             {
-               index = index + splits[i].Length + 1;
-               CharIndex.Add(index);
+                index = index + splits[i].Length + 1;
+                CharIndex.Add(index);
             }
 
             return CharIndex;
@@ -219,7 +220,7 @@ namespace Revit.Elements
                     continue;
                 }
 
-                if(tempCategory != null && pred(tempCategory))
+                if (tempCategory != null && pred(tempCategory))
                 {
                     return tempCategory;
                 }
