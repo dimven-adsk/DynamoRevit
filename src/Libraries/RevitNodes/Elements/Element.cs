@@ -414,7 +414,7 @@ namespace Revit.Elements
         /// </summary>
         /// <param name="parameterName">The name of the parameter.</param>
         /// <returns></returns>
-        private Autodesk.Revit.DB.Parameter GetParameterByName(Autodesk.Revit.DB.Element e, string parameterName)
+        private Autodesk.Revit.DB.Parameter GetParameterByName(string parameterName)
         {
             //
             // Parameter names are not unique on a given element. There are several valid cases where 
@@ -443,7 +443,7 @@ namespace Revit.Elements
             {
                 foreach (var d in knownDefinitions)
                 {
-                    var p = e.get_Parameter(d);
+                    var p = InternalElement.get_Parameter(d);
                     if (p != null)
                     {
                         return p;
