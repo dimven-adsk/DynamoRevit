@@ -458,7 +458,7 @@ namespace Revit.Elements
 
             var param = allParams.FirstOrDefault(x => x.IsReadOnly == false) ?? allParams.FirstOrDefault();
 
-            if (knownDefinitions == null)
+            if (param != null && knownDefinitions == null)
             {
                 knownDefinitions = new List<Definition> { param.Definition };
                 ParameterDefinitionsCache[parameterName] = knownDefinitions;
