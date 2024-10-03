@@ -142,7 +142,7 @@ namespace Revit.Elements
                 TransactionManager.Instance.EnsureInTransaction(Document);
                 DocumentManager.Regenerate();
                 var bb = InternalElement.get_BoundingBox(null);
-                if (bb == null) 
+                if (bb == null)
                 {
                     bb = InternalElement.get_BoundingBox(Document.GetElement(InternalElement.OwnerViewId) as Autodesk.Revit.DB.View);
                 }
@@ -178,11 +178,11 @@ namespace Revit.Elements
         /// </summary>
         public bool IsPinned
         {
-            get 
+            get
             {
                 if (InternalElement == null)
                     return false;
-                return this.InternalElement.Pinned; 
+                return this.InternalElement.Pinned;
             }
         }
 
@@ -229,7 +229,7 @@ namespace Revit.Elements
                 var typeId = this.InternalElement.GetTypeId();
                 if (typeId == ElementId.InvalidElementId)
                     return null;
-                
+
                 var doc = DocumentManager.Instance.CurrentDBDocument;
                 return doc.GetElement(typeId).ToDSType(true) as ElementType;
             }
@@ -278,7 +278,7 @@ namespace Revit.Elements
             // closing homeworkspace or the element itself is frozen.
             if (DisposeLogic.IsShuttingDown || DisposeLogic.IsClosingHomeworkspace || IsFrozen)
                 return;
-            
+
             bool didRevitDelete = ElementIDLifecycleManager<long>.GetInstance().IsRevitDeleted(Id);
 
             var elementManager = ElementIDLifecycleManager<long>.GetInstance();
@@ -287,7 +287,7 @@ namespace Revit.Elements
             // Do not delete Revit owned elements
             if (!IsRevitOwned && remainingBindings == 0 && !didRevitDelete)
             {
-                if(this.InternalElement is View && InternalElement.IsValidObject)
+                if (this.InternalElement is View && InternalElement.IsValidObject)
                 {
                     Autodesk.Revit.UI.UIDocument uIDocument = new Autodesk.Revit.UI.UIDocument(Document);
                     var openedViews = uIDocument.GetOpenUIViews().ToList();
@@ -402,8 +402,11 @@ namespace Revit.Elements
             }
 
             // return deleted elements
-            return deletedElements; 
+            return deletedElements;
         }
+
+        private static Dictionary<string, List<Definition>> ParameterDefinitionsCache
+            = new Dictionary<string, List<Definition>>();
 
         #region Get/Set Parameter
         /// <summary>
@@ -411,7 +414,7 @@ namespace Revit.Elements
         /// </summary>
         /// <param name="parameterName">The name of the parameter.</param>
         /// <returns></returns>
-        private Autodesk.Revit.DB.Parameter GetParameterByName(string parameterName)
+        private Autodesk.Revit.DB.Parameter GetParameterByName(Autodesk.Revit.DB.Element e, string parameterName)
         {
             //
             // Parameter names are not unique on a given element. There are several valid cases where 
@@ -435,13 +438,35 @@ namespace Revit.Elements
             // 2. Sort parameters by ElementId - This will give us built-in parameters first (ID's for built-ins are always < -1)
             // 3. If it exist: Use the first writable parameter
             // 4. Otherwise: Use the first read-only parameter
-            //
+
+            if (ParameterDefinitionsCache.TryGetValue(parameterName, out var knownDefinitions))
+            {
+                foreach (var d in knownDefinitions)
+                {
+                    var p = e.get_Parameter(d);
+                    if (p != null)
+                    {
+                        return p;
+                    }
+                }
+            }
+
             var allParams =
             InternalElement.Parameters.Cast<Autodesk.Revit.DB.Parameter>()
                 .Where(x => string.CompareOrdinal(x.Definition.Name, parameterName) == 0)
                 .OrderBy(x => x.Id.Value);
 
             var param = allParams.FirstOrDefault(x => x.IsReadOnly == false) ?? allParams.FirstOrDefault();
+
+            if (knownDefinitions == null)
+            {
+                knownDefinitions = new List<Definition> { param.Definition };
+                ParameterDefinitionsCache[parameterName] = knownDefinitions;
+            }
+            else
+            {
+                knownDefinitions.Add(param.Definition);
+            }
 
             return param;
         }
@@ -454,7 +479,7 @@ namespace Revit.Elements
         public object GetParameterValueByName(string parameterName)
         {
             var param = GetParameterByName(parameterName);
-            
+
             if (param == null || !param.HasValue)
                 return string.Empty;
 
@@ -898,7 +923,7 @@ namespace Revit.Elements
         public IEnumerable<Element> GetChildElements()
         {
             return GetElementChildren(this.InternalElement);
-            
+
         }
 
         private IEnumerable<Element> GetElementChildren(Autodesk.Revit.DB.Element element)
@@ -1093,12 +1118,12 @@ namespace Revit.Elements
         {
             Autodesk.Revit.DB.Element parent;
 
-            if(element is Autodesk.Revit.DB.Architecture.StairsLanding)
+            if (element is Autodesk.Revit.DB.Architecture.StairsLanding)
             {
                 var stairElement = element as Autodesk.Revit.DB.Architecture.StairsLanding;
                 parent = stairElement.GetStairs();
             }
-            else if(element is Autodesk.Revit.DB.Architecture.StairsRun)
+            else if (element is Autodesk.Revit.DB.Architecture.StairsRun)
             {
                 var stairElement = element as Autodesk.Revit.DB.Architecture.StairsRun;
                 parent = stairElement.GetStairs();
@@ -1188,7 +1213,7 @@ namespace Revit.Elements
             TransactionManager.Instance.TransactionTaskDone();
             return elements;
         }
-        
+
         /// <summary>
         /// Sets the order in which the geometry of two elements is joined.
         /// </summary>
@@ -1204,13 +1229,13 @@ namespace Revit.Elements
             if (JoinGeometryUtils.IsCuttingElementInJoin(Document, cuttingElement.InternalElement, otherElement.InternalElement))
             {
                 return new List<Element>() { cuttingElement, otherElement };
-            }         
+            }
             TransactionManager.Instance.EnsureInTransaction(Document);
             JoinGeometryUtils.SwitchJoinOrder(Document, cuttingElement.InternalElement, otherElement.InternalElement);
             TransactionManager.Instance.TransactionTaskDone();
             return new List<Element>() { cuttingElement, otherElement };
         }
-        
+
         /// <summary>
         /// Joins the geometry of two elements, if they are intersecting.
         /// </summary>
@@ -1334,6 +1359,16 @@ namespace Revit.Elements
             }
 
             return materialnames;
+        }
+
+        internal static void ClearParametersCache()
+        {
+            foreach (var list in ParameterDefinitionsCache.Values)
+            {
+                list.Clear();
+            }
+
+            ParameterDefinitionsCache.Clear();
         }
 
         #endregion
