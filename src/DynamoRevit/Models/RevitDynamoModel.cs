@@ -18,7 +18,6 @@ using Dynamo.Logging;
 using Dynamo.Models;
 using Dynamo.PythonServices;
 using Dynamo.Scheduler;
-using Dynamo.Updates;
 using Dynamo.Utilities;
 using Greg;
 using Newtonsoft.Json;
@@ -200,7 +199,7 @@ namespace Dynamo.Applications.Models
 
         public new static RevitDynamoModel Start()
         {
-            return Start(new RevitStartConfiguration() { ProcessMode = TaskProcessMode.Asynchronous } );
+            return Start(new RevitStartConfiguration() { ProcessMode = TaskProcessMode.Asynchronous });
         }
 
         public new static RevitDynamoModel Start(IRevitStartConfiguration configuration)
@@ -288,7 +287,7 @@ namespace Dynamo.Applications.Models
 
                 //this is a list of all trace data for all nodes in the workspace of this orphan
                 var nodeTraceDataList = runtimeCore.RuntimeData.GetCallsitesForNodes(nodeGuids, runtimeCore.DSExecutable);
-               
+
                 //check each callsite's traceData against the orphans
                 foreach (var kvp in nodeTraceDataList)
                 {
@@ -300,7 +299,7 @@ namespace Dynamo.Applications.Models
 
                         var currentStringIds = currentMultipleSerializableIdObject.SelectMany(x => x.StringIDs).ToList();
                         //if the orphaned serializable exists in the currentTraceData as as subset in a MultiSerializableID
-                        toRemove.AddRange(orphanMultipleSerializableIdObjects.Where(x => currentMultipleSerializableIdObject.Any(y => x.isSubset(y))).SelectMany(x=>x.StringIDs).ToList());
+                        toRemove.AddRange(orphanMultipleSerializableIdObjects.Where(x => currentMultipleSerializableIdObject.Any(y => x.isSubset(y))).SelectMany(x => x.StringIDs).ToList());
                         //Or if one of the callsites traceData is subset in an orphan
                         toRemove.AddRange(currentStringIds.Intersect(orphanStringIDs).ToList());
                         //then remove it from the orphanList so we do not delete it later
@@ -318,7 +317,7 @@ namespace Dynamo.Applications.Models
 
             if (!orphanedIds.Any())
                 return;
-            
+
             if (IsTestMode)
             {
                 DeleteOrphanedElements(orphanedIds, Logger);
@@ -337,12 +336,12 @@ namespace Dynamo.Applications.Models
         private List<MultipleSerializableId> GetAnyMultipleSerializableIDsFromListOfTraceData(IEnumerable<string> currentSerializables)
         {
             var anyMultipleSerializableId = new List<MultipleSerializableId>();
-            if (currentSerializables == null) 
+            if (currentSerializables == null)
                 return anyMultipleSerializableId;
 
-            foreach(var currentSerializable in currentSerializables)
+            foreach (var currentSerializable in currentSerializables)
             {
-                if(currentSerializable == null) continue;
+                if (currentSerializable == null) continue;
 
                 MultipleSerializableId multi = null;
                 try
@@ -361,7 +360,7 @@ namespace Dynamo.Applications.Models
             return anyMultipleSerializableId;
         }
 
-        private List<string> GetAnyStringIDsFromSerializableIDsPressentInOrhpanDictionary(Dictionary<Guid,List<string>> orphanedSerializables)
+        private List<string> GetAnyStringIDsFromSerializableIDsPressentInOrhpanDictionary(Dictionary<Guid, List<string>> orphanedSerializables)
         {
             var allStringIDs = new List<string>();
 
@@ -450,7 +449,7 @@ namespace Dynamo.Applications.Models
                     engine.EvaluationStarted += OnPythonEvalStart;
                     engine.EvaluationFinished += OnPythonEvalFinished;
                 }
-                catch(FileNotFoundException ex)
+                catch (FileNotFoundException ex)
                 {
                     Logger.Log(ex);
                 }
@@ -730,6 +729,9 @@ namespace Dynamo.Applications.Models
             // finally close the transaction!
             TransactionManager.Instance.ForceCloseTransaction();
 
+            // clear the parameters cache
+            Revit.Elements.Element.ClearParametersCache();
+
             base.OnEvaluationCompleted(sender, e);
         }
 
@@ -771,7 +773,7 @@ namespace Dynamo.Applications.Models
         protected override void PostShutdownCore(bool shutdownHost)
         {
             base.PostShutdownCore(shutdownHost);
-            
+
             // Always reset current UI document on shutdown
             DocumentManager.Instance.CurrentUIDocument = null;
         }
@@ -837,13 +839,13 @@ namespace Dynamo.Applications.Models
                         string.Format("Active view is now {0}", newView.Name));
                 }
 
-                if(raiseRevitContextAvailableEvent)
+                if (raiseRevitContextAvailableEvent)
                 {
                     // Pick up current state
                     bool currentState = true;
                     foreach (HomeWorkspaceModel ws in Workspaces.OfType<HomeWorkspaceModel>())
                     {
-                        if(!ws.RunSettings.RunEnabled)
+                        if (!ws.RunSettings.RunEnabled)
                         {
                             currentState = false;
                             break;
