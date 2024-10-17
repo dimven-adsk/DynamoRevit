@@ -268,6 +268,10 @@ namespace RevitServices.Elements
     /// </summary>
     public class ElementUpdateEventArgs : EventArgs
     {
+        private HashSet<ElementId> _elementIds;
+        private HashSet<string> _uniqueIds = null;
+        private HashSet<Element> _elements = null;
+
         public enum UpdateType
         {
             Added,
@@ -286,10 +290,46 @@ namespace RevitServices.Elements
             IEnumerable<string> transactions, UpdateType operation)
         {
             RevitDocument = doc;
-            Elements = elements;
+            _elementIds = new HashSet<ElementId>(elements);
             Transactions = transactions;
             Operation = operation;
         }
+
+        /// <summary>
+        /// Load the elements and uniqueids eagerly the first time, to prevent 
+        /// event consumers from triggering duplicate database lookups, and
+        /// ensure that .Contains() checks are much faster
+        /// </summary>
+        private void LoadElements()
+        {
+            if (_uniqueIds == null)
+            {
+                _uniqueIds = new HashSet<string>();
+                _elements = new HashSet<Element>();
+                foreach(var id in Elements)
+                {
+                    if (RevitDocument.GetElement(id) is Element e)
+                    {
+                        _elements.Add(e);
+                        _uniqueIds.Add(e.UniqueId);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns the elements involved in the event.
+        /// </summary>
+        /// <returns>List of unique id strings</returns>
+        public IEnumerable<Element> GetElements()
+        {
+            if (Elements == null || RevitDocument == null) yield break;
+
+            LoadElements();
+            foreach (var element in _elements)
+                yield return element;
+        }
+
 
         /// <summary>
         /// Returns unique ids for the elements involved in the event.
@@ -299,17 +339,15 @@ namespace RevitServices.Elements
         {
             if (Elements == null || RevitDocument == null) yield break;
 
-            foreach (var id in Elements)
-            {
-                var e = RevitDocument.GetElement(id);
-                if (e != null) yield return e.UniqueId;
-            }
+            LoadElements();
+            foreach (var id in _uniqueIds)
+                yield return id;
         }
 
         /// <summary>
         /// List of elements involved in the event.
         /// </summary>
-        public IEnumerable<ElementId> Elements { get; private set; }
+        public IEnumerable<ElementId> Elements => _elementIds;
 
         /// <summary>
         /// The Revit document involved in the event.
