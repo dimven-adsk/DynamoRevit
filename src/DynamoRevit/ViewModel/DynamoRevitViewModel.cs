@@ -26,10 +26,11 @@ namespace Dynamo.Applications.ViewModel
             model.RevitViewChanged += model_RevitViewChanged;
             model.InvalidRevitDocumentActivated += model_InvalidRevitDocumentActivated;
 
-            if (RevitWatch3DViewModel.GetTransientDisplayMethod() == null) return;
+            //if (RevitWatch3DViewModel.GetTransientDisplayMethod() == null) return;
 
             var watch3DParams = new Watch3DViewModelStartupParams(model);
-            var watch3DVm = new RevitWatch3DViewModel(watch3DParams);
+            //var watch3DVm = new RevitWatch3DViewModel(watch3DParams);
+            var watch3DVm = new RevitDirectContextWatch3DViewModel(watch3DParams);
             RegisterWatch3DViewModel(watch3DVm, new DefaultRenderPackageFactory());
         }
 
