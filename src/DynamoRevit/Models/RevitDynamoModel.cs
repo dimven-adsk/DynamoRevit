@@ -733,6 +733,9 @@ namespace Dynamo.Applications.Models
             // reset the units cache
             UnitConverter.ClearCache();
 
+            // clear the parameters cache
+            Revit.Elements.Element.ClearParametersCache();
+
             base.OnEvaluationCompleted(sender, e);
         }
 
