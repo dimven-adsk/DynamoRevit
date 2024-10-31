@@ -4,7 +4,6 @@ using DynamoServices;
 using Revit.GeometryConversion;
 using RevitServices.Persistence;
 using RevitServices.Transactions;
-using Dynamo.Graph.Nodes;
 
 namespace Revit.Elements
 {
@@ -94,7 +93,7 @@ namespace Revit.Elements
                 TransactionManager.Instance.TransactionTaskDone();
             }
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, InternalGlobalParameter);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
 
@@ -139,7 +138,7 @@ namespace Revit.Elements
                     return GlobalParameter.FromExisting(global, true);
                 }
             }
-            
+
             return null;
         }
 
@@ -218,7 +217,7 @@ namespace Revit.Elements
                 // get document and open transaction
                 Autodesk.Revit.DB.Document document = Application.Document.Current.InternalDocument;
                 TransactionManager.Instance.EnsureInTransaction(document);
-                
+
                 if (value == null)
                 {
                     parameter.InternalGlobalParameter.SetValue(
@@ -260,7 +259,7 @@ namespace Revit.Elements
                 TransactionManager.Instance.EnsureInTransaction(document);
 
                 Autodesk.Revit.DB.ElementId id = new Autodesk.Revit.DB.ElementId(elementId);
-                parameter.InternalGlobalParameter.SetValue(new Autodesk.Revit.DB.ElementIdParameterValue(id));              
+                parameter.InternalGlobalParameter.SetValue(new Autodesk.Revit.DB.ElementIdParameterValue(id));
 
                 TransactionManager.Instance.TransactionTaskDone();
             }
@@ -306,7 +305,7 @@ namespace Revit.Elements
         #endregion
 
         #region Public static constructors
-        
+
         /// <summary>
         /// Create a new Global Parameter by Name and Type
         /// </summary>

@@ -52,7 +52,7 @@ namespace Revit.Elements
         /// <param name="element"></param>
         private ImportInstance(Autodesk.Revit.DB.ImportInstance element)
         {
-            SafeInit(() => InternalSetImportInstance(element),true);
+            SafeInit(() => InternalSetImportInstance(element), true);
         }
 
         #endregion
@@ -94,7 +94,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(importInstance);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         private void InternalUnpinAndTranslateImportInstance(Autodesk.Revit.DB.XYZ translation)
@@ -183,9 +183,9 @@ namespace Revit.Elements
             {
                 throw new ArgumentNullException("view");
             }
-            
+
             var translation = Vector.ByCoordinates(0, 0, 0);
-            
+
             var exported_fn = CreateSATFile(geometries, ref translation);
 
             return new ImportInstance(exported_fn, translation.ToXyz(), view);
@@ -219,7 +219,7 @@ namespace Revit.Elements
         }
 
         #region Helper methods
-        
+
         /// <summary>
         /// This method contains workarounds for increasing the robustness of input geometry
         /// </summary>
@@ -254,7 +254,7 @@ namespace Revit.Elements
             var bb = Autodesk.DesignScript.Geometry.BoundingBox.ByGeometry(geometries);
 
             // get center of bbox
-            var trans = ((bb.MinPoint.ToXyz() + bb.MaxPoint.ToXyz())/2).ToVector().Reverse();
+            var trans = ((bb.MinPoint.ToXyz() + bb.MaxPoint.ToXyz()) / 2).ToVector().Reverse();
             bb.Dispose();
 
             // translate all geom so that it is centered by bb

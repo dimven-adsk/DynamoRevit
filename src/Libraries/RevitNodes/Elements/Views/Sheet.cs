@@ -139,7 +139,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -181,8 +181,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
-
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -220,7 +219,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>

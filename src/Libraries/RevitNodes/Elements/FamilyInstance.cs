@@ -120,7 +120,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -156,7 +156,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         private void InitFamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.Reference reference, Autodesk.Revit.DB.Line pos)
@@ -189,7 +189,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         private void InitFamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.Reference reference, Autodesk.Revit.DB.XYZ location,
@@ -223,7 +223,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         private void InitFamilyInstance(Autodesk.Revit.DB.FamilySymbol fs, Autodesk.Revit.DB.Element host, Autodesk.Revit.DB.XYZ location)
@@ -256,7 +256,7 @@ namespace Revit.Elements
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
         #endregion
 

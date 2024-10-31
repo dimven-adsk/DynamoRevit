@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.DesignScript.Runtime;
@@ -121,14 +120,14 @@ namespace Revit.Elements
 
             // apply suffix
             if (this.InternalRevitElement.NumberOfSegments == 0)
-            { 
-                this.InternalRevitElement.Suffix = suffix; 
+            {
+                this.InternalRevitElement.Suffix = suffix;
             }
             else if (this.InternalRevitElement.NumberOfSegments > 1)
             {
                 foreach (DimensionSegment segment in this.InternalRevitElement.Segments)
-                { 
-                    segment.Suffix = suffix; 
+                {
+                    segment.Suffix = suffix;
                 }
             }
 
@@ -140,13 +139,13 @@ namespace Revit.Elements
             else if (this.InternalRevitElement.NumberOfSegments > 1)
             {
                 foreach (DimensionSegment segment in this.InternalRevitElement.Segments)
-                { 
-                    segment.Prefix = prefix; 
+                {
+                    segment.Prefix = prefix;
                 }
             }
 
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -162,7 +161,7 @@ namespace Revit.Elements
         /// <param name="suffix">Suffix</param>
         /// <param name="prefix">Prefix</param>
         /// <returns>Dimension</returns>
-        public static Dimension ByElements(Revit.Elements.Views.View view, IEnumerable<Revit.Elements.Element> referenceElements, [DefaultArgument("null")]Autodesk.DesignScript.Geometry.Line line, string suffix = "", string prefix = "")
+        public static Dimension ByElements(Revit.Elements.Views.View view, IEnumerable<Revit.Elements.Element> referenceElements, [DefaultArgument("null")] Autodesk.DesignScript.Geometry.Line line, string suffix = "", string prefix = "")
         {
             var elements = referenceElements.ToList();
 
@@ -177,7 +176,7 @@ namespace Revit.Elements
             if (line == null)
             {
                 BoundingBoxXYZ boundingBoxFirstElement = elements[0].InternalElement.get_BoundingBox(revitView);
-                if ((boundingBoxFirstElement) == null) throw new Exception(Properties.Resources.ElementCannotBeAnnotatedError); 
+                if ((boundingBoxFirstElement) == null) throw new Exception(Properties.Resources.ElementCannotBeAnnotatedError);
 
                 BoundingBoxXYZ boundingBoxLastElement = elements[elements.Count - 1].InternalElement.get_BoundingBox(revitView);
                 if ((boundingBoxLastElement) == null) throw new Exception(Properties.Resources.ElementCannotBeAnnotatedError);
@@ -211,7 +210,7 @@ namespace Revit.Elements
         /// <param name="suffix">Suffix</param>
         /// <param name="prefix">Prefix</param>
         /// <returns></returns>
-        public static Dimension ByFaces(Revit.Elements.Views.View view, IEnumerable<Autodesk.DesignScript.Geometry.Surface> referenceSurfaces, [DefaultArgument("null")]Autodesk.DesignScript.Geometry.Line line, string suffix = "", string prefix = "")
+        public static Dimension ByFaces(Revit.Elements.Views.View view, IEnumerable<Autodesk.DesignScript.Geometry.Surface> referenceSurfaces, [DefaultArgument("null")] Autodesk.DesignScript.Geometry.Line line, string suffix = "", string prefix = "")
         {
             var surfaces = referenceSurfaces.ToList();
             if (surfaces.Count < 2) throw new Exception(string.Format(Properties.Resources.NotEnoughDataError, "Surfaces"));
@@ -224,7 +223,7 @@ namespace Revit.Elements
                 throw new Exception(Properties.Resources.ViewDoesNotSupportAnnotations);
             }
 
-            if(line == null)
+            if (line == null)
             {
                 BoundingBoxXYZ boundingBoxFirstElement = surfaces[0].BoundingBox.ToRevitType();
                 if ((boundingBoxFirstElement) == null) throw new Exception(Properties.Resources.ElementCannotBeAnnotatedError);
@@ -239,7 +238,7 @@ namespace Revit.Elements
                 revitLine = (Line)line.ToRevitType(true);
 
             ReferenceArray array = new ReferenceArray();
-            foreach(var surface in surfaces)
+            foreach (var surface in surfaces)
             {
                 var reference = Revit.GeometryReferences.ElementFaceReference.TryGetFaceReference(surface);
                 array.Append(reference.InternalReference);
@@ -257,14 +256,14 @@ namespace Revit.Elements
         /// <param name="suffix">Suffix</param>
         /// <param name="prefix">Prefix</param>
         /// <returns></returns>
-        public static Dimension ByEdges(Revit.Elements.Views.View view, IEnumerable<Autodesk.DesignScript.Geometry.Curve> referenceCurves, [DefaultArgument("null")]Autodesk.DesignScript.Geometry.Line line, string suffix = "", string prefix = "")
+        public static Dimension ByEdges(Revit.Elements.Views.View view, IEnumerable<Autodesk.DesignScript.Geometry.Curve> referenceCurves, [DefaultArgument("null")] Autodesk.DesignScript.Geometry.Line line, string suffix = "", string prefix = "")
         {
             var curves = referenceCurves.ToList();
             if (curves.Count < 2) throw new Exception(string.Format(Properties.Resources.NotEnoughDataError, "Curves"));
 
             Autodesk.Revit.DB.View revitView = (Autodesk.Revit.DB.View)view.InternalElement;
             Line revitLine = null;
-            
+
             if (!view.IsAnnotationView())
             {
                 throw new Exception(Properties.Resources.ViewDoesNotSupportAnnotations);
@@ -284,7 +283,7 @@ namespace Revit.Elements
                 revitLine = (Line)line.ToRevitType(true);
 
             ReferenceArray array = new ReferenceArray();
-            foreach(var curve in curves)
+            foreach (var curve in curves)
             {
                 var reference = Revit.GeometryReferences.ElementCurveReference.TryGetCurveReference(curve);
                 array.Append(reference.InternalReference);
@@ -317,7 +316,7 @@ namespace Revit.Elements
             Line revitLine = (Line)line.ToRevitType(true);
 
             ReferenceArray array = new ReferenceArray();
-            foreach(var geo in geometries)
+            foreach (var geo in geometries)
             {
                 array.Append(geo.InternalReference);
             }
@@ -335,7 +334,7 @@ namespace Revit.Elements
         /// <param name="suffix">Suffix</param>
         /// <param name="prefix">Prefix</param>
         /// <returns></returns>
-        public static Dimension ByElementDirection(Revit.Elements.Views.View view, Revit.Elements.Element element, Autodesk.DesignScript.Geometry.Vector direction, [DefaultArgument("null")]Autodesk.DesignScript.Geometry.Line line, string suffix = "", string prefix = "")
+        public static Dimension ByElementDirection(Revit.Elements.Views.View view, Revit.Elements.Element element, Autodesk.DesignScript.Geometry.Vector direction, [DefaultArgument("null")] Autodesk.DesignScript.Geometry.Line line, string suffix = "", string prefix = "")
         {
             Autodesk.Revit.DB.View revitView = (Autodesk.Revit.DB.View)view.InternalElement;
             if (!view.IsAnnotationView())
@@ -355,7 +354,7 @@ namespace Revit.Elements
             var faces = element.InternalGeometry(false).OfType<Autodesk.Revit.DB.Solid>().SelectMany(x => x.Faces.OfType<Autodesk.Revit.DB.PlanarFace>());
             var references = faces.Select(x => x.Reference);
             Line revitLine = null;
-            
+
             foreach (var face in faces)
             {
                 var isParallel = direction.IsParallel(face.FaceNormal.ToVector());
@@ -383,7 +382,7 @@ namespace Revit.Elements
         /// <summary>
         /// Get Dimension Value
         /// </summary>
-        public IEnumerable<double> Value 
+        public IEnumerable<double> Value
         {
             get
             {
@@ -395,7 +394,7 @@ namespace Revit.Elements
                 else if (this.InternalRevitElement.NumberOfSegments > 1)
                 {
                     foreach (DimensionSegment segment in this.InternalRevitElement.Segments)
-                        data.Add(segment.Value.Value);                   
+                        data.Add(segment.Value.Value);
                 }
 
                 return data;
@@ -455,7 +454,8 @@ namespace Revit.Elements
         /// </summary>
         public IEnumerable<string> Suffix
         {
-            get {
+            get
+            {
                 List<string> data = new List<string>();
 
                 if (this.InternalRevitElement.NumberOfSegments == 0)
@@ -561,7 +561,7 @@ namespace Revit.Elements
                     .Cast<DimensionSegment>()
                     .Select(segment => segment.Above)
                     .ToList();
-            } 
+            }
         }
 
         /// <summary>
@@ -646,7 +646,7 @@ namespace Revit.Elements
         internal static Dimension FromExisting(Autodesk.Revit.DB.Dimension instance, bool isRevitOwned)
         {
             return new Dimension(instance)
-            { 
+            {
                 IsRevitOwned = isRevitOwned
             };
         }
@@ -654,7 +654,7 @@ namespace Revit.Elements
         #endregion
 
         #region Helpers
-        
+
         /// <summary>
         /// GetMidpoint from bounding box
         /// </summary>

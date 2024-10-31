@@ -96,11 +96,11 @@ namespace Revit.Elements
 
             if (oldSurf != null)
             {
-                ElementBinder.CleanupAndSetElementForTrace(Document, this.InternalElement);
+                ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
             }
             else
             {
-                ElementBinder.SetElementForTrace(this.InternalElement);
+                ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
             }
 
             // necessary so the points in the topography are valid

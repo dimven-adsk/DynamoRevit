@@ -150,7 +150,8 @@ namespace Revit.Elements
             InternalSetElement(tagElem);
 
             TransactionManager.Instance.TransactionTaskDone();
-            ElementBinder.SetElementForTrace(this.InternalElement);
+
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion

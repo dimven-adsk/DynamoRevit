@@ -46,7 +46,7 @@ namespace Revit.Elements.Views
         {
             SafeInit(() => InitDraftingView(view), true);
         }
-      
+
         /// <summary>
         /// Private constructor
         /// </summary>
@@ -88,7 +88,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, this.InternalElement);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -116,14 +116,14 @@ namespace Revit.Elements.Views
         /// </summary>
         /// <param name="name">Name of the view</param>
         /// <returns>The view</returns>
-        public static DraftingView ByName( string name )
+        public static DraftingView ByName(string name)
         {
             if (name == null)
             {
                 throw new ArgumentNullException("name");
             }
 
-            return new DraftingView( name );
+            return new DraftingView(name);
         }
         #endregion
 

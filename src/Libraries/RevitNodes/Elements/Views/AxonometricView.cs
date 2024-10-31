@@ -85,7 +85,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         /// <summary>
@@ -117,7 +117,7 @@ namespace Revit.Elements.Views
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.SetElementForTrace(this.InternalElement);
+            ElementBinder.SetElementForTrace(InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -150,7 +150,7 @@ namespace Revit.Elements.Views
         /// <returns>An AxonometricView object.</returns>
         public static AxonometricView ByEyePointAndTarget(
             Autodesk.DesignScript.Geometry.Point eyePoint,
-            Autodesk.DesignScript.Geometry.Point target, 
+            Autodesk.DesignScript.Geometry.Point target,
             string name = DEFAULT_VIEW_NAME)
         {
             if (eyePoint == null)
@@ -181,10 +181,10 @@ namespace Revit.Elements.Views
         /// crop box around it.</param>
         /// <returns>An AxonometricView object.</returns>
         public static AxonometricView ByEyePointTargetAndElement(
-            Autodesk.DesignScript.Geometry.Point eyePoint, 
+            Autodesk.DesignScript.Geometry.Point eyePoint,
             Autodesk.DesignScript.Geometry.Point target,
-            string name = DEFAULT_VIEW_NAME, 
-            Element element = null, 
+            string name = DEFAULT_VIEW_NAME,
+            Element element = null,
             bool isolateElement = false)
         {
             if (eyePoint == null)
@@ -216,7 +216,7 @@ namespace Revit.Elements.Views
                     element.InternalElement,
                     isolateElement);
             }
-            
+
         }
 
         /// <summary>
@@ -230,10 +230,10 @@ namespace Revit.Elements.Views
         /// bounding box will be isolated in the current view by creating a minimum size
         /// crop box around it.</param>
         /// <returns>An AxonometricView object.</returns>
-        public static AxonometricView ByEyePointTargetAndBoundingBox(Autodesk.DesignScript.Geometry.Point eyePoint, 
-            Autodesk.DesignScript.Geometry.Point target, 
-            Autodesk.DesignScript.Geometry.BoundingBox boundingBox, 
-            string name = DEFAULT_VIEW_NAME, 
+        public static AxonometricView ByEyePointTargetAndBoundingBox(Autodesk.DesignScript.Geometry.Point eyePoint,
+            Autodesk.DesignScript.Geometry.Point target,
+            Autodesk.DesignScript.Geometry.BoundingBox boundingBox,
+            string name = DEFAULT_VIEW_NAME,
             bool isolateElement = false)
         {
             if (boundingBox == null)

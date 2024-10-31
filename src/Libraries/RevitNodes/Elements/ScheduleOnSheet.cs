@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Autodesk.DesignScript.Geometry;
 using Autodesk.Revit.DB;
 using Revit.Elements.Views;
 using Revit.GeometryConversion;
@@ -84,13 +80,13 @@ namespace Revit.Elements
 
             var scheduleOnSheetElement = ElementBinder.GetElementFromTrace<Autodesk.Revit.DB.ScheduleSheetInstance>(Document);
 
-            scheduleOnSheetElement = Autodesk.Revit.DB.ScheduleSheetInstance.Create(Document, sheetId, scheduleViewId, scheduleLocation);            
+            scheduleOnSheetElement = Autodesk.Revit.DB.ScheduleSheetInstance.Create(Document, sheetId, scheduleViewId, scheduleLocation);
 
             InternalSetScheduleOnSheet(scheduleOnSheetElement);
 
             TransactionManager.Instance.TransactionTaskDone();
 
-            ElementBinder.CleanupAndSetElementForTrace(Document, this.InternalElement);
+            ElementBinder.CleanupAndSetElementForTrace(Document, InternalElementId, InternalUniqueId);
         }
 
         #endregion
@@ -185,7 +181,7 @@ namespace Revit.Elements
             {
                 throw new ArgumentNullException("location");
             }
-            if(IsScheduleEmpty(scheduleView.InternalViewSchedule))
+            if (IsScheduleEmpty(scheduleView.InternalViewSchedule))
             {
                 throw new InvalidOperationException(Properties.Resources.EmptySchedule);
             }
