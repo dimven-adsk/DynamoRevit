@@ -1,14 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Xml;
 using Autodesk.DesignScript.Geometry;
 using Autodesk.DesignScript.Interfaces;
 using Autodesk.Revit.DB;
+using Dynamo.Graph.Connectors;
 using Dynamo.Graph.Nodes;
+using Dynamo.Graph.Workspaces;
 using Dynamo.Models;
 using Dynamo.Wpf.ViewModels.Watch3D;
+using Dynamo.Wpf.Views.Debug;
 using Revit.GeometryConversion;
 using RevitServices.Persistence;
 using RevitServices.Threading;
@@ -109,14 +115,17 @@ namespace Dynamo.Applications.ViewModel
                     break;
             }
         }
-        
+
         #region private methods
 
+        Stopwatch _sw;
         private void Draw(NodeModel node = null)
         {
             // If there is no open Revit document, some nodes cannot be executed.
             if (!Active || DocumentManager.Instance.CurrentDBDocument == null) return;
             IEnumerable<IGraphicItem> graphicItems = new List<IGraphicItem>();
+
+            _sw = Stopwatch.StartNew();
 
             if (node != null)
             {
@@ -172,6 +181,8 @@ namespace Dynamo.Applications.ViewModel
                     keeperId = (ElementId)method.Invoke(null, argsM);
 
                     TransactionManager.Instance.ForceCloseTransaction();
+                    var elapsed = _sw.ElapsedMilliseconds;
+                    Debug.WriteLine($"Transient element update took {elapsed}ms");
                 });
         }
 
@@ -349,6 +360,8 @@ namespace Dynamo.Applications.ViewModel
         /// <returns></returns>
         private List<GeometryObject> Tessellate(Solid solid)
         {
+            var pkg = renderPackageFactory.CreateRenderPackage();
+            solid.Tessellate(pkg, renderPackageFactory.TessellationParameters);
             List<GeometryObject> rtGeoms = new List<GeometryObject>();
 
             try
