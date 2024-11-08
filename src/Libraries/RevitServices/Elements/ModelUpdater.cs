@@ -49,7 +49,7 @@ namespace RevitServices.Elements
         {
             var handler = ElementAddedForID;
             if (handler != null) handler(e.RevitDocument, e.Elements);
-            
+
             var updateHandler = ElementsUpdated;
             if (updateHandler != null) updateHandler(this, e);
         }
@@ -59,7 +59,7 @@ namespace RevitServices.Elements
         {
             var handler = ElementsModified;
             if (handler != null) handler(e.GetUniqueIds());
-            
+
             var updateHandler = ElementsUpdated;
             if (updateHandler != null) updateHandler(this, e);
         }
@@ -68,7 +68,7 @@ namespace RevitServices.Elements
         {
             var handler = ElementsDeleted;
             if (handler != null) handler(e.RevitDocument, e.Elements);
-            
+
             var updateHandler = ElementsUpdated;
             if (updateHandler != null) updateHandler(this, e);
         }
@@ -156,7 +156,7 @@ namespace RevitServices.Elements
 
         public void AddUpdater(IUpdater updater)
         {
-            if (registeredUpdaters.Contains(updater)) 
+            if (registeredUpdaters.Contains(updater))
                 return;
 
             registeredUpdaters.Add(updater);
@@ -165,7 +165,7 @@ namespace RevitServices.Elements
 
         public void RemoveUpdater(IUpdater updater)
         {
-            if (!registeredUpdaters.Contains(updater)) 
+            if (!registeredUpdaters.Contains(updater))
                 return;
 
             registeredUpdaters.Remove(updater);
@@ -193,7 +193,7 @@ namespace RevitServices.Elements
         }
 
         private void Dispose()
-        {            
+        {
             foreach (var updater in registeredUpdaters)
             {
                 ((ElementTypeSpecificUpdater)updater).Updated -= RevitServicesUpdater_Updated;
@@ -220,17 +220,22 @@ namespace RevitServices.Elements
             ProcessUpdates(doc, Enumerable.Empty<ElementId>(), deleted, Enumerable.Empty<ElementId>(), empty);
         }
 
-        private void ProcessUpdates(Document doc, IEnumerable<ElementId> modified, 
-            IEnumerable<ElementId> deleted, IEnumerable<ElementId> added, 
+        private void ProcessUpdates(Document doc, IEnumerable<ElementId> modified,
+            IEnumerable<ElementId> deleted, IEnumerable<ElementId> added,
             IEnumerable<string> transactions)
         {
             var transactionList = transactions as IList<string> ?? transactions.ToList();
-            OnElementsDeleted(new ElementUpdateEventArgs(doc, deleted.Distinct(), transactionList, ElementUpdateEventArgs.UpdateType.Deleted));
-            OnElementsModified(new ElementUpdateEventArgs(doc, modified.Distinct(), transactionList, ElementUpdateEventArgs.UpdateType.Modified));
+            if (deleted.Any())
+                OnElementsDeleted(new ElementUpdateEventArgs(doc, deleted, transactionList, ElementUpdateEventArgs.UpdateType.Deleted));
 
-            var addedElements = added.Distinct().ToList();
-            OnElementsAdded(new ElementUpdateEventArgs(doc, addedElements, transactionList, ElementUpdateEventArgs.UpdateType.Added));
-            OnElementIdsAdded(new ElementUpdateEventArgs(doc, addedElements, transactionList, ElementUpdateEventArgs.UpdateType.Added));
+            if (modified.Any())
+                OnElementsModified(new ElementUpdateEventArgs(doc, modified, transactionList, ElementUpdateEventArgs.UpdateType.Modified));
+
+            if (added.Any())
+            {
+                OnElementsAdded(new ElementUpdateEventArgs(doc, added, transactionList, ElementUpdateEventArgs.UpdateType.Added));
+                OnElementIdsAdded(new ElementUpdateEventArgs(doc, added, transactionList, ElementUpdateEventArgs.UpdateType.Added));
+            }
         }
 
         public void ApplicationDocumentChanged(object sender, DocumentChangedEventArgs args)
@@ -262,6 +267,10 @@ namespace RevitServices.Elements
     /// </summary>
     public class ElementUpdateEventArgs : EventArgs
     {
+        private HashSet<ElementId> _elementIds;
+        private HashSet<string> _uniqueIds = null;
+        private HashSet<Element> _elements = null;
+
         public enum UpdateType
         {
             Added,
@@ -276,14 +285,49 @@ namespace RevitServices.Elements
         /// <param name="elements">List of elements involved in the event.</param>
         /// <param name="transactions">Name of transactions involved in the event.</param>
         /// <param name="operation">Type of operation such as Added, Modified or Deleted.</param>
-        public ElementUpdateEventArgs(Document doc, IEnumerable<ElementId> elements, 
+        public ElementUpdateEventArgs(Document doc, IEnumerable<ElementId> elements,
             IEnumerable<string> transactions, UpdateType operation)
         {
             RevitDocument = doc;
-            Elements = elements;
+            _elementIds = new HashSet<ElementId>(elements);
             Transactions = transactions;
             Operation = operation;
         }
+
+        /// <summary>
+        /// Load the elements and uniqueids eagerly the first time, to prevent 
+        /// event consumers from triggering duplicate database lookups, and
+        /// ensure that .Contains() checks are much faster
+        /// </summary>
+        private void LoadElements()
+        {
+            if (_uniqueIds == null)
+            {
+                _uniqueIds = new HashSet<string>();
+                _elements = new HashSet<Element>();
+                foreach (var id in Elements)
+                {
+                    if (RevitDocument.GetElement(id) is Element e)
+                    {
+                        _elements.Add(e);
+                        _uniqueIds.Add(e.UniqueId);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns the elements involved in the event.
+        /// </summary>
+        /// <returns>List of unique id strings</returns>
+        public IEnumerable<Element> GetElements()
+        {
+            if (Elements == null || RevitDocument == null) return Enumerable.Empty<Element>();
+
+            LoadElements();
+            return _elements;
+        }
+
 
         /// <summary>
         /// Returns unique ids for the elements involved in the event.
@@ -291,19 +335,16 @@ namespace RevitServices.Elements
         /// <returns>List of unique id strings</returns>
         public IEnumerable<string> GetUniqueIds()
         {
-            if (Elements == null || RevitDocument == null) yield break;
+            if (Elements == null || RevitDocument == null) return Enumerable.Empty<string>();
 
-            foreach (var id in Elements)
-            {
-                var e = RevitDocument.GetElement(id);
-                if (e != null) yield return e.UniqueId;
-            }
+            LoadElements();
+            return _uniqueIds;
         }
 
         /// <summary>
         /// List of elements involved in the event.
         /// </summary>
-        public IEnumerable<ElementId> Elements { get; private set; }
+        public IEnumerable<ElementId> Elements => _elementIds;
 
         /// <summary>
         /// The Revit document involved in the event.
