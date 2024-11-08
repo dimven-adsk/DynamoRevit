@@ -322,11 +322,10 @@ namespace RevitServices.Elements
         /// <returns>List of unique id strings</returns>
         public IEnumerable<Element> GetElements()
         {
-            if (Elements == null || RevitDocument == null) yield break;
+            if (Elements == null || RevitDocument == null) return Enumerable.Empty<Element>();
 
             LoadElements();
-            foreach (var element in _elements)
-                yield return element;
+            return _elements;
         }
 
 
@@ -336,11 +335,10 @@ namespace RevitServices.Elements
         /// <returns>List of unique id strings</returns>
         public IEnumerable<string> GetUniqueIds()
         {
-            if (Elements == null || RevitDocument == null) yield break;
+            if (Elements == null || RevitDocument == null) return Enumerable.Empty<string>();
 
             LoadElements();
-            foreach (var id in _uniqueIds)
-                yield return id;
+            return _uniqueIds;
         }
 
         /// <summary>
